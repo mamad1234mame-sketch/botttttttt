@@ -100,6 +100,9 @@ jobs:
         id: publish
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # کلیدهای اضافیِ مجاز را با comma یا newline در یک Secret قرار بده.
+          # کلید اصلی بالا هم خودکار عضو pool است.
+          GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.7-flash' }}
           IMAGE_MODEL: ${{ vars.IMAGE_MODEL || 'gemini-3.1-flash-image' }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
