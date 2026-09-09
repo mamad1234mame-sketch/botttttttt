@@ -60,6 +60,7 @@ def _setup_logging(verbose: bool) -> None:
 def build_publisher(settings: Settings) -> tuple[Publisher, GeminiClient, TelegramClient]:
     gemini = GeminiClient(
         api_key=settings.gemini_api_key,
+        api_keys=settings.gemini_api_keys,
         max_retries=settings.max_retries,
         timeout=settings.request_timeout,
     )
@@ -149,6 +150,7 @@ def _list_models(settings: Settings) -> int:
     """
     client = GeminiClient(
         api_key=settings.gemini_api_key,
+        api_keys=settings.gemini_api_keys,
         max_retries=2,
         timeout=60,
     )
@@ -165,7 +167,8 @@ def _list_models(settings: Settings) -> int:
     text_models = [n for n in names if "image" not in n and "veo" not in n and "tts" not in n]
     image_models = [n for n in names if "image" in n]
 
-    print(f"✅ {len(names)} مدل روی این اکانت در دسترس است\n")
+    key_count = len(settings.gemini_api_keys) or 1
+    print(f"✅ {len(names)} مدل روی مجموع {key_count} API key مجاز در دسترس/قابل مشاهده است\n")
     print("— مدل‌های متنی (برای GEMINI_MODEL) —")
     for name in text_models:
         mark = " ← پیش‌فرض فعلی" if name == settings.text_model else ""
