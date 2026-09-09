@@ -43,6 +43,7 @@ jobs:
       - name: List Gemini models available on this account
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.7-flash' }}
           IMAGE_MODEL: ${{ vars.IMAGE_MODEL || 'gemini-3.1-flash-image' }}
           # همان متغیرهایی که در اجرای واقعی استفاده می‌شوند، تا نردبانی که
