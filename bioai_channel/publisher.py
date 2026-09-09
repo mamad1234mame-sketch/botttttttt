@@ -93,6 +93,11 @@ class Publisher:
                 )
             except (GeminiError, ValueError) as exc:
                 logger.warning("نوشتن پست شکست خورد (تلاش %d/3): %s", attempt + 1, exc)
+                # سهمیهٔ روزانه تا ریست برنمی‌گردد؛ تلاش مجدد فقط سهمیهٔ
+                # بقیهٔ مدل‌ها را هم می‌سوزاند. پس زودتر خارج شو.
+                if "سهمیهٔ روزانه" in str(exc):
+                    result.error = f"quota exhausted: {exc}"
+                    return result
                 if attempt == 2:
                     result.error = f"write failed: {exc}"
                     return result
