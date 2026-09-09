@@ -38,6 +38,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-signals", action="store_true", help="ترند/مقالات تازه را نگیر.")
     parser.add_argument("--state", default=None, help="مسیر فایل حافظه.")
     parser.add_argument("--selftest", action="store_true", help="فقط اتصال تلگرام و Gemini را چک کن.")
+    parser.add_argument(
+        "--list-models",
+        action="store_true",
+        help="مدل‌های موجود روی اکانت Gemini را فهرست کن و خارج شو.",
+    )
     parser.add_argument("--verbose", action="store_true", help="لاگ کامل.")
     return parser
 
@@ -107,6 +112,43 @@ def _selftest(settings: Settings) -> int:
     return 0
 
 
+def _list_models(settings: Settings) -> int:
+    """مدل‌های واقعیِ روی اکانت را چاپ می‌کند.
+
+    چون فهرست مدل‌ها بین اکانت‌ها فرق می‌کند، به‌جای حدس زدن اسم مدل،
+    خود اکانت را می‌پرسیم.
+    """
+    client = GeminiClient(
+        api_key=settings.gemini_api_key,
+        max_retries=2,
+        timeout=60,
+    )
+    try:
+        names = sorted(client.list_models() or [])
+    except Exception as exc:  # noqa: BLE001
+        print(f"❌ گرفتن فهرست مدل‌ها ممکن نشد: {exc}")
+        return 1
+
+    if not names:
+        print("❌ هیچ مدلی برنگشت. کلید API را چک کن.")
+        return 1
+
+    text_models = [n for n in names if "image" not in n and "veo" not in n and "tts" not in n]
+    image_models = [n for n in names if "image" in n]
+
+    print(f"✅ {len(names)} مدل روی این اکانت در دسترس است\n")
+    print("— مدل‌های متنی (برای GEMINI_MODEL) —")
+    for name in text_models:
+        mark = " ← پیش‌فرض فعلی" if name == settings.text_model else ""
+        print(f"  {name}{mark}")
+    print("\n— مدل‌های تصویر (برای IMAGE_MODEL) —")
+    for name in image_models:
+        mark = " ← پیش‌فرض فعلی" if name == settings.image_model else ""
+        print(f"  {name}{mark}")
+    print("\nسهمیهٔ هر مدل را اینجا ببین: https://aistudio.google.com/rate-limit")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _build_arg_parser().parse_args(argv)
     _setup_logging(args.verbose)
@@ -129,6 +171,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.selftest:
         return _selftest(settings)
 
+    if args.list_models:
+        return _list_models(settings)
+
     publisher, _gemini, _telegram = build_publisher(settings)
     result: RunResult = publisher.run(forced_format=args.format)
 
@@ -146,22 +191,27 @@ def _friendly_hint(error: str) -> str:
     """برای خطاهای رایج، راهنمای عملی به زبان ساده می‌دهد."""
     low = (error or "").lower()
 
-    if "resource_exhausted" in low or "exceeded your current quota" in low:
+    if "quota" in low or "resource_exhausted" in low:
         return (
-            "💡 <b>سهمیهٔ رایگان Gemini تمام شده.</b>\n"
+            "💡 <b>سهمیهٔ رایگان Gemini برای امروز تمام شده.</b>\n"
             "سهمیه نیمه‌شب به وقت اقیانوس آرام ریست می‌شود "
-            "(حدود ۱۰:۳۰ صبح تهران). تا آن صبر کن.\n"
-            "برای اینکه کمتر گیر بیفتی:\n"
-            "• در Settings → Variables یک متغیر <code>GEMINI_MODEL</code> "
-            "با مقدار <code>gemini-2.5-flash</code> بساز (سهمیهٔ بالاتر)\n"
-            "• cron را روی هر ۳ ساعت نگه دار، نه هر ساعت\n"
-            "• یا در AI Studio یک billing account وصل کن"
+            "(حدود <b>۱۰:۳۰ صبح تهران</b>). تا آن چیزی منتشر نمی‌شود.\n\n"
+            "سهمیهٔ واقعی‌ات را اینجا ببین:\nhttps://aistudio.google.com/rate-limit\n\n"
+            "راه‌حل‌های دائمی:\n"
+            "• در AI Studio یک <b>billing account</b> وصل کن (Tier 1). "
+            "با spend cap پایین، عملاً رایگان می‌ماند ولی سهمیه‌ات خیلی "
+            "بالاتر می‌رود.\n"
+            "• cron را روی هر ۳ ساعت نگه دار، نه هر ساعت.\n"
+            "• برای تست‌ها <code>skip_image</code> را تیک بزن."
         )
-    if "is not found" in low or "invalid model" in low:
+    if "در دسترس نیست" in low or "is not found" in low or "invalid model" in low:
         return (
-            "💡 مدل پیدا نشد. در Settings → Variables یک متغیر "
-            "<code>GEMINI_MODEL</code> بساز و مقدارش را "
-            "<code>gemini-2.5-flash</code> بگذار."
+            "💡 هیچ مدل مناسبی روی اکانت پیدا نشد.\n"
+            "برای دیدن فهرست مدل‌های واقعیِ اکانتت، workflow را با "
+            "<code>dry_run</code> اجرا کن و در لاگ خط "
+            "«مدل روی این اکانت در دسترس است» را نگاه کن.\n"
+            "سپس در Settings → Variables متغیر <code>GEMINI_MODEL</code> را "
+            "روی یکی از همان مدل‌ها بگذار."
         )
     if "chat not found" in low or "chat_admin_required" in low:
         return "💡 <code>TELEGRAM_CHAT_ID</code> را چک کن و مطمئن شو بات ادمین کانال است."
