@@ -29,6 +29,11 @@ on:
           - dataset
           - method_watch
           - frontier
+      fast_test:
+        description: "🚀 تست سریع: بدون تأخیر تصادفی اجرا کن"
+        required: false
+        type: boolean
+        default: true
       dry_run:
         description: "فقط تست کن، چیزی به کانال نفرست"
         required: false
@@ -50,6 +55,10 @@ permissions:
 
 env:
   PYTHON_VERSION: "3.12"
+  DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+  SKIP_IMAGES: ${{ inputs.skip_image && 'true' || 'false' }}
+  # در اجرای زمان‌بندی‌شده inputs خالی است، پس jitter همیشه فعال می‌ماند.
+  SKIP_JITTER: ${{ (inputs.fast_test || inputs.dry_run) && 'true' || 'false' }}
 
 jobs:
   post:
@@ -73,13 +82,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # تاخیر تصادفی تا همهٔ ربات‌های دنیا رأس ساعت به API نزنند
+      # تأخیر تصادفی تا همهٔ ربات‌های دنیا رأس ساعت به API نزنند
       # و الگوی انتشار کانال طبیعی‌تر به نظر برسد.
+      # با fast_test یا dry_run رد می‌شود.
       - name: Random jitter (0-20 min)
+        if: env.SKIP_JITTER != 'true'
         run: |
           DELAY=$((RANDOM % 1200))
           echo "sleeping ${DELAY}s"
           sleep "$DELAY"
+
+      - name: Fast test (jitter skipped)
+        if: env.SKIP_JITTER == 'true'
+        run: echo "🚀 حالت تست سریع — بدون تأخیر اجرا می‌شود"
 
       - name: Publish post
         id: publish
@@ -92,8 +107,6 @@ jobs:
           ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
           CHANNEL_SIGNATURE: ${{ vars.CHANNEL_SIGNATURE || '@Bio_with_AI' }}
           STATE_PATH: state/memory.json
-          DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
-          SKIP_IMAGES: ${{ inputs.skip_image && 'true' || 'false' }}
         run: |
           ARGS="--state $STATE_PATH"
           if [ -n "${{ inputs.format }}" ]; then
