@@ -40,6 +40,10 @@ class GeminiQuotaExhausted(GeminiError):
     """سهمیهٔ روزانهٔ مدل تمام شده؛ تا ریست (نیمه‌شب PT) برگشت ندارد."""
 
 
+class GeminiNoModelsAvailable(GeminiError):
+    """هیچ مدل قابل استفاده‌ای روی این اکانت پیدا نشد."""
+
+
 def _status_of(exc: Exception) -> int | None:
     for attr in ("status_code", "code"):
         value = getattr(exc, attr, None)
@@ -92,6 +96,8 @@ class GeminiClient:
     ) -> None:
         self.max_retries = max(1, max_retries)
         self.timeout = timeout
+        #: کش فهرست مدل‌های موجود روی اکانت (یک‌بار گرفته می‌شود).
+        self._model_cache: set[str] | None = None
         if client is not None:
             self._client = client
         else:
@@ -104,6 +110,31 @@ class GeminiClient:
             )
 
     # ------------------------------------------------------------------ API
+    def list_models(self) -> set[str] | None:
+        """اسم مدل‌هایی که روی این اکانت واقعاً وجود دارند.
+
+        اگر گرفتن فهرست ممکن نشد، None برمی‌گردانیم تا سخت‌گیری نکنیم
+        (بهتر است یک ۴۰۴ بخوریم تا اینکه بی‌دلیل چیزی را رد کنیم).
+        """
+        if self._model_cache is not None:
+            return self._model_cache
+
+        names: set[str] = set()
+        try:
+            for page in self._client.models.list():
+                name = str(getattr(page, "name", "") or "")
+                if name:
+                    names.add(name.replace("models/", ""))
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("گرفتن فهرست مدل‌ها ممکن نشد: %s", exc)
+            self._model_cache = None
+            return None
+
+        self._model_cache = names or None
+        if names:
+            logger.info("%d مدل روی این اکانت در دسترس است.", len(names))
+        return self._model_cache
+
     def generate(
         self,
         model: str,
@@ -112,8 +143,26 @@ class GeminiClient:
         fallback_models: tuple[str, ...] = (),
     ) -> Any:
         """یک فراخوانی generate_content با retry و fallback مدل."""
-        models = (model, *fallback_models)
+        requested = (model, *fallback_models)
+
+        # اول مدل‌هایی که اصلاً روی این اکانت وجود ندارند را حذف کن، تا
+        # بی‌خودی ۴۰۴ نزنیم و سهمیه/زمان هدر نرود.
+        available = self.list_models()
+        if available:
+            models = tuple(m for m in requested if m in available)
+            skipped = [m for m in requested if m not in available]
+            if skipped:
+                logger.info("این مدل‌ها روی اکانت وجود ندارند، رد شدند: %s", skipped)
+        else:
+            models = requested
+
+        if not models:
+            raise GeminiNoModelsAvailable(
+                f"هیچ‌کدام از این مدل‌ها روی اکانت تو در دسترس نیست: {list(requested)}"
+            )
+
         last_error: Exception | None = None
+        quota_errors = 0
 
         for index, candidate in enumerate(models):
             try:
@@ -128,9 +177,10 @@ class GeminiClient:
                         models[index + 1],
                     )
                     continue
-                raise GeminiError(f"هیچ مدل متنی در دسترس نبود: {models}") from exc
+                raise GeminiError(f"هیچ مدل متنی در دسترس نبود: {list(models)}") from exc
             except GeminiQuotaExhausted as exc:
                 last_error = exc
+                quota_errors += 1
                 if index + 1 < len(models):
                     logger.warning(
                         "سهمیهٔ روزانهٔ %s تمام شده؛ امتحان مدل %s (سهمیهٔ هر مدل جداست)",
@@ -139,7 +189,8 @@ class GeminiClient:
                     )
                     continue
                 raise GeminiError(
-                    f"سهمیهٔ روزانهٔ همهٔ مدل‌ها تمام شده: {list(models)}"
+                    "سهمیهٔ روزانهٔ همهٔ مدل‌های در دسترس تمام شده: "
+                    f"{list(models)}"
                 ) from exc
             except GeminiError as exc:
                 last_error = exc
