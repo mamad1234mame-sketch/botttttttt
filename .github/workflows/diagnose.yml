@@ -45,6 +45,11 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.7-flash' }}
           IMAGE_MODEL: ${{ vars.IMAGE_MODEL || 'gemini-3.1-flash-image' }}
+          # همان متغیرهایی که در اجرای واقعی استفاده می‌شوند، تا نردبانی که
+          # این‌جا چاپ می‌شود دقیقاً همان نردبانِ اجرای اصلی باشد.
+          GEMINI_MODEL_FALLBACKS: ${{ vars.GEMINI_MODEL_FALLBACKS }}
+          IMAGE_MODEL_FALLBACKS: ${{ vars.IMAGE_MODEL_FALLBACKS }}
+          GEMINI_PREFER_PRO: ${{ vars.GEMINI_PREFER_PRO || 'false' }}
           # این دو فقط برای اینکه config بالا بیاید لازم‌اند؛ استفاده نمی‌شوند
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
