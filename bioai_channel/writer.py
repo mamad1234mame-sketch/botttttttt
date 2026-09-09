@@ -243,12 +243,18 @@ def write_post(
 
         # سهمیهٔ هر مدل جداست؛ اگر مدل اصلی 429 داد، مدل‌های جایگزین
         # *درجا* و بدون صبر امتحان می‌شوند (نردبان کامل از config).
-        response = client.generate(
-            settings.text_model,
-            prompt,
-            config,
-            fallback_models=settings.text_model_ladder[1:],
-        )
+        try:
+            response = client.generate(
+                settings.text_model,
+                prompt,
+                config,
+                fallback_models=settings.text_model_ladder[1:],
+            )
+        except TypeError as exc:
+            # سازگاری با کلاینت‌های تست/قدیمی که هنوز fallback_models ندارند.
+            if "fallback_models" not in str(exc):
+                raise
+            response = client.generate(settings.text_model, prompt, config)
         used_model = getattr(response, "model_used", None) or settings.text_model
         logger.info("Gemini (متن) با %s — %s", used_model, usage_of(response))
 
