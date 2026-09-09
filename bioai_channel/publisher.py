@@ -133,44 +133,57 @@ class Publisher:
         result.parts = len(rendered.parts)
         result.chars = rendered.total_chars
 
-        # ۵) تصویر -------------------------------------------------------
+        # ۵) ارسال متن ----------------------------------------------------
+        # متن را اول به کانال می‌فرستیم. تصویر عمداً بعد از آن تولید می‌شود
+        # تا تولید تصویر باعث تأخیر در نمایش متن نشود.
         generated = None
-        if fmt.needs_image and not self.settings.skip_images and not self.settings.dry_run:
-            # فاصلهٔ کوتاه بین پایان تولید متن و شروع تولید تصویر.
-            image_delay = 3
-            logger.info("متن آماده شد؛ %d ثانیه تا شروع تولید تصویر صبر می‌کنیم…", image_delay)
-            time.sleep(image_delay)
-            try:
-                generated = image_module.generate(self.gemini, self.settings, draft.image_prompt, style)
-            except Exception as exc:  # noqa: BLE001 - تصویر هیچ‌وقت نباید اجرا را بکشد
-                logger.error("خطای غیرمنتظره در تولید تصویر: %s", exc)
-        result.image = generated is not None
-
-        # ۶) ارسال -------------------------------------------------------
         if self.settings.dry_run:
             logger.info("DRY RUN — پیام ارسال نشد:\n%s", rendered.as_text())
             result.ok = True
             result.message_ids = []
-            self._remember(draft, fmt, rendered, None, generated is not None)
+            self._remember(draft, fmt, rendered, None, False)
             return result
 
         try:
-            result.message_ids = self._send(rendered, generated, draft)
+            result.message_ids = self._send_text(rendered)
         except TelegramError as exc:
             result.error = f"telegram: {exc}"
-            logger.error("ارسال به تلگرام شکست خورد: %s", exc)
+            logger.error("ارسال متن به تلگرام شکست خورد: %s", exc)
             return result
 
+        # ۶) فاصلهٔ واقعی بعد از ارسال متن، سپس تولید تصویر --------------
+        if fmt.needs_image and not self.settings.skip_images:
+            image_delay = 3
+            logger.info(
+                "متن در کانال ارسال شد؛ %d ثانیه تا شروع تولید تصویر صبر می‌کنیم…",
+                image_delay,
+            )
+            time.sleep(image_delay)
+            try:
+                generated = image_module.generate(
+                    self.gemini, self.settings, draft.image_prompt, style
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.error("خطای غیرمنتظره در تولید تصویر: %s", exc)
+
+        # ۷) ارسال تصویر --------------------------------------------------
+        if generated is not None:
+            try:
+                photo_id = self._send_photo(generated, draft, rendered, result.message_ids[0])
+                result.message_ids.append(photo_id)
+            except TelegramError as exc:
+                logger.error("تصویر ساخته شد اما ارسال آن به تلگرام شکست خورد: %s", exc)
+
+        result.image = generated is not None
         result.ok = True
-        self._remember(draft, fmt, rendered, result.message_ids[0] if result.message_ids else None,
-                       generated is not None)
+        self._remember(
+            draft, fmt, rendered,
+            result.message_ids[0] if result.message_ids else None,
+            generated is not None,
+        )
         logger.info(
             "منتشر شد: [%s] %s (%d تکه، %d کاراکتر، تصویر=%s)",
-            fmt.id,
-            draft.title,
-            result.parts,
-            result.chars,
-            result.image,
+            fmt.id, draft.title, result.parts, result.chars, result.image,
         )
         return result
 
@@ -188,19 +201,12 @@ class Publisher:
             bundle.errors.append(str(exc))
             return bundle
 
-    def _send(
-        self,
-        rendered: RenderedPost,
-        generated: image_module.GeneratedImage | None,
-        draft: Any,
-    ) -> list[int]:
+    def _send_text(self, rendered: RenderedPost) -> list[int]:
+        """همهٔ بخش‌های متن را ارسال می‌کند و ID آخرین بخش را برمی‌گرداند."""
         message_ids: list[int] = []
         anchor: int | None = None
-
         for index, part in enumerate(rendered.parts):
-            markup = (
-                {"inline_keyboard": part.keyboard} if part.keyboard else None
-            )
+            markup = {"inline_keyboard": part.keyboard} if part.keyboard else None
             message_id = self.telegram.send_message(
                 text=part.text,
                 reply_markup=markup,
@@ -211,19 +217,24 @@ class Publisher:
             message_ids.append(message_id)
             if anchor is None:
                 anchor = message_id
-
-        if generated is not None:
-            caption = self._image_caption(draft, rendered)
-            photo_id = self.telegram.send_photo(
-                photo_bytes=generated.data,
-                caption=caption,
-                mime_type=generated.mime_type,
-                reply_to_message_id=anchor,
-                silent=bool(rendered.parts[0].silent),
-            )
-            message_ids.append(photo_id)
-
         return message_ids
+
+    def _send_photo(
+        self,
+        generated: image_module.GeneratedImage,
+        draft: Any,
+        rendered: RenderedPost,
+        reply_to_message_id: int | None,
+    ) -> int:
+        """تصویر تولیدشده را بعد از متن به‌عنوان reply ارسال می‌کند."""
+        caption = self._image_caption(draft, rendered)
+        return self.telegram.send_photo(
+            photo_bytes=generated.data,
+            caption=caption,
+            mime_type=generated.mime_type,
+            reply_to_message_id=reply_to_message_id,
+            silent=bool(rendered.parts[0].silent),
+        )
 
     @staticmethod
     def _image_caption(draft: Any, rendered: RenderedPost) -> str:
