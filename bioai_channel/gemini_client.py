@@ -210,14 +210,26 @@ class GeminiClient:
         # بدون تکراری، ولی ترتیب حفظ شود: اول مدل درخواستی، بعد جایگزین‌ها.
         requested = tuple(dict.fromkeys((model, *fallback_models)))
 
-        # ۱) مدل‌هایی که اصلاً روی این اکانت وجود ندارند را حذف کن، تا
-        #    بی‌خودی ۴۰۴ نزنیم و سهمیه/زمان هدر نرود.
+        # ۱) مدل‌هایی که در فهرست اکانت *دیده نشدند* را به‌جای حذف کامل،
+        #    فقط به آخر صف منتقل کن. فهرست list_models() می‌تواند ناقص،
+        #    تأخیردار، یا محدود به منطقه/نسخهٔ API باشد — حذف قطعی یعنی اگر
+        #    این فهرست اشتباه باشد، مدل‌هایی که واقعاً کار می‌کنند هرگز حتی
+        #    امتحان هم نمی‌شوند (دقیقاً همان چیزی که باعث خطای «هیچ مدل در
+        #    دسترس نبود» می‌شود، وقتی فقط مدل‌های منسوخ در فهرست باشند).
+        #    اینجا صرفاً اولویت را به مدل‌های تأییدشده می‌دهیم، ولی همه را
+        #    نگه می‌داریم؛ یک تلاش واقعی روی شبکه قابل‌اعتمادتر از فهرست
+        #    کش‌شده است.
         available = self.list_models()
         if available:
-            models = tuple(m for m in requested if m in available)
-            skipped = [m for m in requested if m not in available]
-            if skipped:
-                logger.info("این مدل‌ها روی اکانت وجود ندارند، رد شدند: %s", skipped)
+            confirmed = tuple(m for m in requested if m in available)
+            unconfirmed = tuple(m for m in requested if m not in available)
+            if unconfirmed:
+                logger.info(
+                    "این مدل‌ها در فهرست اکانت دیده نشدند (ممکن است فهرست ناقص/تأخیردار "
+                    "باشد)؛ آخر صف امتحان می‌شوند، نه حذف: %s",
+                    list(unconfirmed),
+                )
+            models = confirmed + unconfirmed
         else:
             models = requested
 
