@@ -62,7 +62,7 @@ def generate(
 
     prompt = build_image_prompt(topic_prompt, style)
     config = types.GenerateContentConfig(
-        response_modalities=["IMAGE"],
+        response_modalities=["TEXT", "IMAGE"],
         image_config=types.ImageConfig(aspect_ratio=ASPECT_RATIO, output_mime_type="image/png"),
     )
 
