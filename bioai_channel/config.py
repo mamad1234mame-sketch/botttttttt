@@ -54,22 +54,28 @@ def _model_list(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
 #: مدلی که متن را می‌نویسد و وب را جست‌وجو می‌کند (Grounding with Google Search).
 #: مقدار پیش‌فرض یک مدل *stable* است. برای دیدن فهرست زنده:
 #: https://ai.google.dev/gemini-api/docs/models
-DEFAULT_TEXT_MODEL = "gemini-3.7-flash"
+#:
+#: توجه (سپتامبر ۲۰۲۶): gemini-2.5-flash و gemini-2.5-flash-lite رسماً
+#: shut down شده‌اند (به ترتیب ۱۷ ژوئن و ۲۲ ژوئیهٔ ۲۰۲۶) و دیگر در هیچ
+#: نردبانی نباید باشند — همیشه ۴۰۴ می‌دهند و فقط وقت/تلاش هدر می‌دهند.
+DEFAULT_TEXT_MODEL = "gemini-3.8-flash"
 
 #: اگر سهمیهٔ مدل اصلی تمام شد (429) یا مدل در دسترس نبود، این‌ها به‌ترتیب
 #: امتحان می‌شوند. نکتهٔ مهم: سهمیهٔ هر مدل جداست، پس مدل دوم می‌تواند
 #: همان لحظه‌ای که مدل اول 429 داده کار کند.
 #:
-#: ترتیب: اول Flash-Lite ها (سهمیهٔ رایگانشان معمولاً بالاتر است)، بعد
-#: بقیهٔ Flash ها. مدل‌هایی که روی اکانت وجود ندارند خودکار رد می‌شوند.
+#: ترتیب: مدل‌های جدیدتر و پایدار خانوادهٔ Gemini 3 اول، بعد Flash-Lite ها
+#: (سهمیهٔ رایگانشان معمولاً بالاتر است). مدل‌هایی که روی اکانت وجود ندارند
+#: خودکار به آخر صف منتقل می‌شوند (نه حذف — چون فهرست اکانت ممکن است ناقص
+#: یا با تأخیر sync شده باشد؛ حذف کامل باعث می‌شد مدل‌های واقعاً کار‌کن هم
+#: هرگز امتحان نشوند).
 DEFAULT_TEXT_MODEL_FALLBACKS = (
-    "gemini-3.5-flash-lite",
-    "gemini-3.1-flash-lite",
+    "gemini-3.7-flash",
     "gemini-3.6-flash",
+    "gemini-3.5-flash-lite",
     "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
     "gemini-3-flash-preview",
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
 )
 
 #: مدل تولید تصویر (Nano Banana 2). اگر روی اکانت تو در دسترس نبود،
@@ -78,7 +84,6 @@ DEFAULT_IMAGE_MODEL = "gemini-3.1-flash-image"
 IMAGE_MODEL_FALLBACKS = (
     "gemini-3.1-flash-lite-image",
     "gemini-2.5-flash-image",
-    "gemini-2.5-flash",
 )
 
 #: مدل‌های *Pro*. پیش‌فرض استفاده نمی‌شوند (سهمیهٔ رایگان‌شان کم است و زود
