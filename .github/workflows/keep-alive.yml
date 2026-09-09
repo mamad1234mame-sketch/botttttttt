@@ -1,0 +1,43 @@
+name: keep-alive
+
+# گیتهاب workflow های زمان‌بندی‌شده را در ریپوی بی‌فعال (۶۰ روز بدون کامیت)
+# به‌صورت بی‌صدا خاموش می‌کند. چون post.yml خودش state را کامیت می‌کند معمولاً
+# این اتفاق نمی‌افتد، ولی این workflow به‌عنوان تور ایمنی هفته‌ای یک کامیت
+# می‌گذارد تا زمان‌بند هرگز خاموش نشود.
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: true
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Touch heartbeat
+        run: |
+          mkdir -p state
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > state/heartbeat.txt
+
+      - name: Commit
+        run: |
+          git config user.name  "bio-ai-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state/heartbeat.txt
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+          else
+            git commit -m "chore: keep-alive heartbeat [skip ci]"
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || true
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
