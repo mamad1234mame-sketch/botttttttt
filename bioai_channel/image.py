@@ -81,6 +81,11 @@ def generate(
             response = client.generate(
                 model, prompt, config, fallback_models=fallbacks
             )
+        except TypeError as exc:
+            # سازگاری با کلاینت‌های تست/قدیمی که fallback_models ندارند.
+            if "fallback_models" not in str(exc):
+                raise
+            response = client.generate(model, prompt, config)
         except GeminiError as exc:
             # خودِ کلاینت همهٔ مدل‌های زنده را امتحان کرده و باز هم نشده؛
             # ادامهٔ حلقه فایده ندارد چون همان مدل‌ها را دوباره صدا می‌زند.
