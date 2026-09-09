@@ -142,6 +142,32 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def _friendly_hint(error: str) -> str:
+    """برای خطاهای رایج، راهنمای عملی به زبان ساده می‌دهد."""
+    low = (error or "").lower()
+
+    if "resource_exhausted" in low or "exceeded your current quota" in low:
+        return (
+            "💡 <b>سهمیهٔ رایگان Gemini تمام شده.</b>\n"
+            "سهمیه نیمه‌شب به وقت اقیانوس آرام ریست می‌شود "
+            "(حدود ۱۰:۳۰ صبح تهران). تا آن صبر کن.\n"
+            "برای اینکه کمتر گیر بیفتی:\n"
+            "• در Settings → Variables یک متغیر <code>GEMINI_MODEL</code> "
+            "با مقدار <code>gemini-2.5-flash</code> بساز (سهمیهٔ بالاتر)\n"
+            "• cron را روی هر ۳ ساعت نگه دار، نه هر ساعت\n"
+            "• یا در AI Studio یک billing account وصل کن"
+        )
+    if "is not found" in low or "invalid model" in low:
+        return (
+            "💡 مدل پیدا نشد. در Settings → Variables یک متغیر "
+            "<code>GEMINI_MODEL</code> بساز و مقدارش را "
+            "<code>gemini-2.5-flash</code> بگذار."
+        )
+    if "chat not found" in low or "chat_admin_required" in low:
+        return "💡 <code>TELEGRAM_CHAT_ID</code> را چک کن و مطمئن شو بات ادمین کانال است."
+    return ""
+
+
 def _notify_admin(settings: Settings, result: RunResult) -> None:
     if not settings.admin_chat_id or settings.dry_run:
         return
@@ -156,6 +182,9 @@ def _notify_admin(settings: Settings, result: RunResult) -> None:
             f"قالب: <code>{result.format_id or 'n/a'}</code>\n"
             f"خطا: <code>{(result.error or 'unknown')[:600]}</code>"
         )
+        hint = _friendly_hint(result.error)
+        if hint:
+            text += "\n\n" + hint
         client.send_message(text=text)
     except TelegramError:
         pass
