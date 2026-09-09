@@ -81,6 +81,24 @@ IMAGE_MODEL_FALLBACKS = (
     "gemini-2.5-flash",
 )
 
+#: مدل‌های *Pro*. پیش‌فرض استفاده نمی‌شوند (سهمیهٔ رایگان‌شان کم است و زود
+#: ۴۲۹ می‌دهند). اگر GEMINI_PREFER_PRO=true بگذاری، اول این‌ها امتحان
+#: می‌شوند و به‌محض تمام شدن سهمیه *درجا* به Flash/Lite سوئیچ می‌شود.
+#: مدل‌هایی که روی اکانت وجود ندارند خودکار رد می‌شوند.
+PRO_TEXT_MODELS = (
+    "gemini-3.1-pro-preview",
+    "gemini-2.5-pro",
+)
+PRO_IMAGE_MODELS = (
+    "gemini-3-pro-image",
+    "gemini-3.1-pro-image",
+)
+
+
+def _dedupe(models: tuple[str, ...]) -> tuple[str, ...]:
+    """ترتیب را حفظ می‌کند، تکراری‌ها را حذف."""
+    return tuple(dict.fromkeys(models))
+
 
 @dataclass(slots=True)
 class Settings:
@@ -94,6 +112,10 @@ class Settings:
     text_model_fallbacks: tuple[str, ...] = DEFAULT_TEXT_MODEL_FALLBACKS
     image_model: str = DEFAULT_IMAGE_MODEL
     image_model_fallbacks: tuple[str, ...] = IMAGE_MODEL_FALLBACKS
+
+    #: اگر true باشد، مدل‌های Pro *اول* امتحان می‌شوند و به‌محض ۴۲۹ به
+    #: Flash/Lite سوئیچ می‌شود. پیش‌فرض false است چون سهمیهٔ رایگان Pro کم است.
+    prefer_pro: bool = False
 
     #: ادمین شخصی که گزارش خطاها برایش می‌رود (اختیاری).
     admin_chat_id: str = ""
@@ -124,6 +146,29 @@ class Settings:
 
     extra: dict[str, str] = field(default_factory=dict)
 
+    # -------------------------------------------------------------- نردبان مدل
+    @property
+    def text_model_ladder(self) -> tuple[str, ...]:
+        """ترتیب کامل مدل‌های متنی برای امتحان کردن.
+
+        همیشه اول ``text_model`` (مدل درخواستی) امتحان می‌شود؛ اگر
+        ``prefer_pro`` روشن باشد Pro ها بلافاصله بعدش می‌آیند، و در هر دو
+        حالت Flash/Lite ها به‌عنوان تور ایمنی آخر صف هستند. یعنی حتی اگر
+        Pro گذاشته باشی، با تمام شدن سهمیه‌اش درجا به رایگان می‌افتی.
+        """
+        head: tuple[str, ...] = (self.text_model,)
+        if self.prefer_pro:
+            head = head + PRO_TEXT_MODELS
+        return _dedupe(head + self.text_model_fallbacks)
+
+    @property
+    def image_model_ladder(self) -> tuple[str, ...]:
+        """ترتیب کامل مدل‌های تصویر برای امتحان کردن."""
+        head: tuple[str, ...] = (self.image_model,)
+        if self.prefer_pro:
+            head = head + PRO_IMAGE_MODELS
+        return _dedupe(head + self.image_model_fallbacks)
+
     @classmethod
     def from_env(cls) -> "Settings":
         return cls(
@@ -136,6 +181,8 @@ class Settings:
             ),
             image_model=_optional("IMAGE_MODEL", DEFAULT_IMAGE_MODEL) or DEFAULT_IMAGE_MODEL,
             image_model_fallbacks=_model_list("IMAGE_MODEL_FALLBACKS", IMAGE_MODEL_FALLBACKS),
+            prefer_pro=_optional("GEMINI_PREFER_PRO", "false").lower()
+            in {"1", "true", "yes", "on"},
             admin_chat_id=_optional("ADMIN_CHAT_ID"),
             dry_run=_optional("DRY_RUN", "false").lower() in {"1", "true", "yes", "on"},
             skip_images=_optional("SKIP_IMAGES", "false").lower() in {"1", "true", "yes", "on"},
