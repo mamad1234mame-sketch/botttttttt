@@ -36,6 +36,10 @@ class GeminiUnavailable(GeminiError):
     """مدل در دسترس نبود (۴۰۴ یا invalid model)."""
 
 
+class GeminiQuotaExhausted(GeminiError):
+    """سهمیهٔ روزانهٔ مدل تمام شده؛ تا ریست (نیمه‌شب PT) برگشت ندارد."""
+
+
 def _status_of(exc: Exception) -> int | None:
     for attr in ("status_code", "code"):
         value = getattr(exc, attr, None)
@@ -50,6 +54,22 @@ def _is_retryable(exc: Exception) -> bool:
         return True
     message = str(exc).lower()
     return any(marker in message for marker in RETRYABLE_MARKERS)
+
+
+def is_quota_error(exc: Exception) -> bool:
+    """آیا خطا مربوط به تمام شدن سهمیه است؟"""
+    message = str(exc).lower()
+    return "resource_exhausted" in message or "exceeded your current quota" in message
+
+
+def is_daily_quota_exhausted(exc: Exception) -> bool:
+    """آیا سهمیهٔ *روزانه* تمام شده (نه محدودیت دقیقه‌ای)؟
+
+    سهمیهٔ روزانه نیمه‌شب به وقت اقیانوس آرام ریست می‌شود؛ پس صبر کردنِ
+    چند ثانیه‌ای فایده‌ای ندارد و باید سراغ مدل بعدی رفت.
+    """
+    message = str(exc).lower()
+    return "exceeded your current quota" in message or "requests per day" in message
 
 
 def _is_missing_model(exc: Exception) -> bool:
@@ -109,6 +129,18 @@ class GeminiClient:
                     )
                     continue
                 raise GeminiError(f"هیچ مدل متنی در دسترس نبود: {models}") from exc
+            except GeminiQuotaExhausted as exc:
+                last_error = exc
+                if index + 1 < len(models):
+                    logger.warning(
+                        "سهمیهٔ روزانهٔ %s تمام شده؛ امتحان مدل %s (سهمیهٔ هر مدل جداست)",
+                        candidate,
+                        models[index + 1],
+                    )
+                    continue
+                raise GeminiError(
+                    f"سهمیهٔ روزانهٔ همهٔ مدل‌ها تمام شده: {list(models)}"
+                ) from exc
             except GeminiError as exc:
                 last_error = exc
                 if index + 1 < len(models):
@@ -127,10 +159,24 @@ class GeminiClient:
             except Exception as exc:  # noqa: BLE001 - SDK انواع خطای متنوعی پرتاب می‌کند
                 if _is_missing_model(exc):
                     raise GeminiUnavailable(f"مدل {model} پیدا نشد: {exc}") from exc
+
+                # سهمیهٔ روزانه تمام شده؟ صبر کردن روی همین مدل فایده ندارد؛
+                # سریع برگرد بیرون تا مدل بعدی امتحان شود.
+                if is_daily_quota_exhausted(exc):
+                    raise GeminiQuotaExhausted(
+                        f"سهمیهٔ روزانهٔ {model} تمام شده است: {exc}"
+                    ) from exc
+
                 if attempt >= self.max_retries or not _is_retryable(exc):
                     raise GeminiError(f"فراخوانی {model} شکست خورد: {exc}") from exc
 
-                delay = min(30.0, (2 ** (attempt - 1)) * 2.0) + random.uniform(0, 1.5)
+                # محدودیت دقیقه‌ای (RPM/TPM) با صبر کوتاه حل می‌شود، پس
+                # برای ۴۲۹ کمی سخاوتمندانه‌تر صبر می‌کنیم.
+                if is_quota_error(exc):
+                    delay = min(45.0, (2 ** attempt) * 6.0) + random.uniform(0, 3.0)
+                else:
+                    delay = min(30.0, (2 ** (attempt - 1)) * 2.0) + random.uniform(0, 1.5)
+
                 logger.warning(
                     "تلاش %d/%d برای %s شکست خورد (%s). %.1f ثانیه صبر می‌کنیم…",
                     attempt,
