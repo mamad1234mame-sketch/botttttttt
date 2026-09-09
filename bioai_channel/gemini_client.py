@@ -144,13 +144,22 @@ class GeminiClient:
         self.max_retries = max(1, max_retries)
         self.timeout = timeout
 
-        # GEMINI_API_KEY همیشه معتبر می‌ماند و GEMINI_API_KEYS می‌تواند
-        # چند کلید مجاز را برای failover بدهد. تکراری‌ها حذف می‌شوند.
-        keys = tuple(dict.fromkeys(k.strip() for k in api_keys if k and k.strip()))
-        if not keys:
-            keys = (api_key.strip(),) if api_key.strip() else ()
-        elif api_key.strip() and api_key.strip() not in keys:
-            keys = (api_key.strip(), *keys)
+        # هر ورودی ممکن است شامل چند key با newline/comma/semicolon باشد.
+        # هر key را به‌صورت مستقل به google-genai می‌دهیم تا multiline
+        # به‌عنوان مقدار یک HTTP header ارسال نشود.
+        raw_values = [api_key, *api_keys]
+        split_keys: list[str] = []
+        for raw in raw_values:
+            if not raw:
+                continue
+            split_keys.extend(
+                item.strip()
+                for item in re.split(r"[,;
+
+]+", str(raw))
+                if item.strip()
+            )
+        keys = tuple(dict.fromkeys(split_keys))
 
         self._api_keys = keys
         self._clients: list[Any] = []
