@@ -154,9 +154,7 @@ class GeminiClient:
                 continue
             split_keys.extend(
                 item.strip()
-                for item in re.split(r"[,;
-
-]+", str(raw))
+                for item in re.split(r"[,;\n\r]+", str(raw))
                 if item.strip()
             )
         keys = tuple(dict.fromkeys(split_keys))
