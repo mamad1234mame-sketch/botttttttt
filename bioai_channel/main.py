@@ -115,21 +115,30 @@ def _selftest(settings: Settings) -> int:
 def _print_ladder(kind: str, ladder: tuple[str, ...], available: set[str]) -> None:
     """نردبان واقعیِ امتحان‌شدن مدل‌ها را چاپ می‌کند.
 
-    این دقیقاً همان چیزی است که در اجرا اتفاق می‌افتد: از بالا به پایین،
-    و هر مدلی که روی اکانت نیست اصلاً صدا زده نمی‌شود.
+    توجه: مدل‌های تأییدشده توسط فهرست اکانت *اول* امتحان می‌شوند؛ بقیه
+    (آن‌هایی که در فهرست دیده نشدند) حذف نمی‌شوند، بلکه به آخر صف
+    می‌روند و در صورت شکست همه‌چیز، همچنان امتحان خواهند شد — چون فهرست
+    اکانت می‌تواند ناقص یا تأخیردار باشد.
     """
+    confirmed = [m for m in ladder if m in available]
+    unconfirmed = [m for m in ladder if m not in available]
+    real_order = confirmed + unconfirmed
+
     print(f"\n— نردبان {kind} (به همین ترتیب امتحان می‌شود) —")
-    usable = 0
-    for index, model in enumerate(ladder, start=1):
+    for index, model in enumerate(real_order, start=1):
         if model in available:
-            usable += 1
-            print(f"  {index}. {model}  ✅")
+            print(f"  {index}. {model}  ✅ تأییدشده روی اکانت")
         else:
-            print(f"  {index}. {model}  ⛔ روی اکانت نیست، رد می‌شود")
-    if usable == 0:
-        print("  ⚠️ هیچ‌کدام قابل استفاده نیست! GEMINI_MODEL را عوض کن.")
+            print(f"  {index}. {model}  ❔ در فهرست اکانت دیده نشد، ولی همچنان امتحان می‌شود")
+    if not confirmed:
+        print(
+            "  ⚠️ هیچ‌کدام در فهرست اکانتت تأیید نشد. همه به‌عنوان حدس امتحان "
+            "می‌شوند؛ اگر همه‌شان ۴۰۴ دادند، GEMINI_MODEL را با مدلی از "
+            "https://ai.google.dev/gemini-api/docs/models عوض کن یا در "
+            "https://aistudio.google.com دسترسی اکانتت را چک کن."
+        )
     else:
-        print(f"  → {usable} مدل قابل استفاده است.")
+        print(f"  → {len(confirmed)} مدل روی اکانت تأیید شده است.")
 
 
 def _list_models(settings: Settings) -> int:
