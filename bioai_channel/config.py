@@ -59,16 +59,27 @@ DEFAULT_TEXT_MODEL = "gemini-3.7-flash"
 #: اگر سهمیهٔ مدل اصلی تمام شد (429) یا مدل در دسترس نبود، این‌ها به‌ترتیب
 #: امتحان می‌شوند. نکتهٔ مهم: سهمیهٔ هر مدل جداست، پس مدل دوم می‌تواند
 #: همان لحظه‌ای که مدل اول 429 داده کار کند.
+#:
+#: ترتیب: اول Flash-Lite ها (سهمیهٔ رایگانشان معمولاً بالاتر است)، بعد
+#: بقیهٔ Flash ها. مدل‌هایی که روی اکانت وجود ندارند خودکار رد می‌شوند.
 DEFAULT_TEXT_MODEL_FALLBACKS = (
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
     "gemini-3.6-flash",
     "gemini-3.5-flash",
+    "gemini-3-flash-preview",
     "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
 )
 
 #: مدل تولید تصویر (Nano Banana 2). اگر روی اکانت تو در دسترس نبود،
 #: با IMAGE_MODEL_FALLBACKS امتحان می‌شود و در نهایت پست بدون تصویر می‌رود.
 DEFAULT_IMAGE_MODEL = "gemini-3.1-flash-image"
-IMAGE_MODEL_FALLBACKS = ("gemini-2.5-flash-image", "gemini-2.5-flash")
+IMAGE_MODEL_FALLBACKS = (
+    "gemini-3.1-flash-lite-image",
+    "gemini-2.5-flash-image",
+    "gemini-2.5-flash",
+)
 
 
 @dataclass(slots=True)
