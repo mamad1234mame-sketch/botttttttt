@@ -1,0 +1,61 @@
+name: diagnose
+
+# ابزار تشخیصی: هر وقت خواستی ببینی روی اکانتت چه مدل‌هایی هست،
+# این workflow را دستی اجرا کن و لاگش را بخوان.
+# هیچ پیامی به کانال نمی‌فرستد.
+
+on:
+  workflow_dispatch:
+    inputs:
+      check_telegram:
+        description: "اتصال تلگرام را هم چک کن"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: diagnose
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: List Gemini models available on this account
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.7-flash' }}
+          IMAGE_MODEL: ${{ vars.IMAGE_MODEL || 'gemini-3.1-flash-image' }}
+          # این دو فقط برای اینکه config بالا بیاید لازم‌اند؛ استفاده نمی‌شوند
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m bioai_channel.main --list-models
+
+      - name: Check Telegram connection
+        if: inputs.check_telegram == true
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
+          STATE_PATH: state/memory.json
+        run: python -m bioai_channel.main --selftest
