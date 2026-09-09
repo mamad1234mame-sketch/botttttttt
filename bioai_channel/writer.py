@@ -241,7 +241,14 @@ def write_post(
             tools=[types.Tool(google_search=types.GoogleSearch())],
         )
 
-        response = client.generate(settings.text_model, prompt, config)
+        # سهمیهٔ هر مدل جداست؛ اگر مدل اصلی 429 داد، مدل‌های جایگزین
+        # به‌ترتیب امتحان می‌شوند.
+        response = client.generate(
+            settings.text_model,
+            prompt,
+            config,
+            fallback_models=settings.text_model_fallbacks,
+        )
         logger.info("Gemini (متن) %s", usage_of(response))
 
         raw_text = (getattr(response, "text", "") or "").strip()
