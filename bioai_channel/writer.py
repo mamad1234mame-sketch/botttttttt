@@ -231,13 +231,14 @@ def write_post(
             system_instruction=SYSTEM_INSTRUCTION,
             temperature=settings.temperature,
             max_output_tokens=settings.max_output_tokens,
-            tools=[
-                types.Tool(
-                    google_search=types.GoogleSearch(
-                        exclude_domains=list(EXCLUDED_DOMAINS),
-                    )
-                )
-            ],
+            # نکته: GoogleSearch را *بدون هیچ آرگومانی* می‌سازیم.
+            # پارامترهایی مثل exclude_domains / search_types فقط در حالت
+            # Gemini Enterprise Agent Platform کار می‌کنند و در Gemini
+            # Developer API با خطای 400 رد می‌شوند:
+            #   "exclude_domains parameter is only supported in Gemini
+            #    Enterprise Agent Platform mode"
+            # محدودسازی دامنه‌ها را به‌جایش در پرامپت انجام می‌دهیم.
+            tools=[types.Tool(google_search=types.GoogleSearch())],
         )
 
         response = client.generate(settings.text_model, prompt, config)
