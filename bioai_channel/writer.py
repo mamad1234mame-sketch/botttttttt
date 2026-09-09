@@ -242,14 +242,15 @@ def write_post(
         )
 
         # سهمیهٔ هر مدل جداست؛ اگر مدل اصلی 429 داد، مدل‌های جایگزین
-        # به‌ترتیب امتحان می‌شوند.
+        # *درجا* و بدون صبر امتحان می‌شوند (نردبان کامل از config).
         response = client.generate(
             settings.text_model,
             prompt,
             config,
-            fallback_models=settings.text_model_fallbacks,
+            fallback_models=settings.text_model_ladder[1:],
         )
-        logger.info("Gemini (متن) %s", usage_of(response))
+        used_model = getattr(response, "model_used", None) or settings.text_model
+        logger.info("Gemini (متن) با %s — %s", used_model, usage_of(response))
 
         raw_text = (getattr(response, "text", "") or "").strip()
         try:
