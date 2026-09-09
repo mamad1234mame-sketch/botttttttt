@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import random
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -135,6 +136,10 @@ class Publisher:
         # ۵) تصویر -------------------------------------------------------
         generated = None
         if fmt.needs_image and not self.settings.skip_images and not self.settings.dry_run:
+            # فاصلهٔ کوتاه بین پایان تولید متن و شروع تولید تصویر.
+            image_delay = 3
+            logger.info("متن آماده شد؛ %d ثانیه تا شروع تولید تصویر صبر می‌کنیم…", image_delay)
+            time.sleep(image_delay)
             try:
                 generated = image_module.generate(self.gemini, self.settings, draft.image_prompt, style)
             except Exception as exc:  # noqa: BLE001 - تصویر هیچ‌وقت نباید اجرا را بکشد
