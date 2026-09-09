@@ -52,7 +52,12 @@ def generate(
     topic_prompt: str,
     style: StyleRoll,
 ) -> GeneratedImage | None:
-    """یک تصویر تولید می‌کند؛ در صورت شکست None برمی‌گرداند."""
+    """یک تصویر تولید می‌کند؛ در صورت شکست None برمی‌گرداند.
+
+    مسیر تصویر دقیقاً مثل مسیر متن است: نردبان کامل مدل‌ها به کلاینت داده
+    می‌شود تا سهمیهٔ روزانه که تمام شد *درجا* و بدون صبر به مدل بعدی برود
+    و مدل‌های روی‌اکانت‌نبوده و سهمیه‌تمام‌شده را اصلاً صدا نزند.
+    """
     from google.genai import types
 
     prompt = build_image_prompt(topic_prompt, style)
@@ -61,22 +66,40 @@ def generate(
         image_config=types.ImageConfig(aspect_ratio=ASPECT_RATIO, output_mime_type="image/png"),
     )
 
-    models = (settings.image_model, *settings.image_model_fallbacks)
-    for index, model in enumerate(models):
-        try:
-            response = client.generate(model, prompt, config)
-        except GeminiError as exc:
-            logger.warning("تولید تصویر با %s شکست خورد: %s", model, str(exc)[:160])
-            continue
+    ladder = settings.image_model_ladder
+    #: مدل‌هایی که جواب دادند ولی تصویری برنگرداندند (این سهمیه نیست،
+    #: پس ارزش یک بار امتحان دوباره را دارند).
+    no_image: list[str] = []
 
+    for index, model in enumerate(ladder):
+        remaining = ladder[index + 1 :]
+        # مدل‌هایی که قبلاً تصویر ندادند را به انتهای صف برگردان، ولی
+        # هرگز مدلی را که همین حالا امتحان شد دوباره صدا نزن.
+        fallbacks = tuple(m for m in (*remaining, *no_image) if m != model)
+
+        try:
+            response = client.generate(
+                model, prompt, config, fallback_models=fallbacks
+            )
+        except GeminiError as exc:
+            # خودِ کلاینت همهٔ مدل‌های زنده را امتحان کرده و باز هم نشده؛
+            # ادامهٔ حلقه فایده ندارد چون همان مدل‌ها را دوباره صدا می‌زند.
+            logger.warning("تولید تصویر ممکن نشد: %s", str(exc)[:200])
+            break
+
+        used = getattr(response, "model_used", None) or model
         image = _extract_image(response)
         if image is not None:
-            logger.info("تصویر ساخته شد با %s (%.0f KB) — %s", model, image.size_kb, usage_of(response))
+            logger.info(
+                "تصویر ساخته شد با %s (%.0f KB) — %s",
+                used,
+                image.size_kb,
+                usage_of(response),
+            )
             return image
 
-        logger.warning("مدل %s تصویری برنگرداند.", model)
-        if index + 1 >= len(models):
-            break
+        logger.warning("مدل %s جواب داد ولی تصویری برنگرداند.", used)
+        no_image.append(used)
 
     logger.error("تولید تصویر با هیچ مدلی ممکن نشد؛ پست بدون تصویر می‌رود.")
     return None
