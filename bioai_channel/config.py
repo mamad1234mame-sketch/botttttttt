@@ -49,22 +49,18 @@ def _model_list(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
 
 
 def _api_key_list(primary_name: str = "GEMINI_API_KEY", pool_name: str = "GEMINI_API_KEYS") -> tuple[str, ...]:
-    """کلید اصلی + کلیدهای failover را از env می‌خواند.
+    """همهٔ Gemini API keyها را از env می‌خواند.
 
-    GEMINI_API_KEYS می‌تواند با comma یا newline جدا شود. کلید تکراری
-    فقط یک‌بار استفاده می‌شود.
+    هر دو متغیر می‌توانند یک یا چند key داشته باشند. جداکننده‌ها:
+    newline، comma یا semicolon. هر key به‌صورت مستقل وارد pool می‌شود.
     """
     values: list[str] = []
-    primary = os.environ.get(primary_name, "").strip()
-    if primary:
-        values.append(primary)
-
-    raw = os.environ.get(pool_name, "")
-    for item in re.split(r"[,\n\r]+", raw):
-        item = item.strip()
-        if item:
-            values.append(item)
-
+    for env_name in (primary_name, pool_name):
+        raw = os.environ.get(env_name, "")
+        for item in re.split(r"[,;\n\r]+", raw):
+            item = item.strip()
+            if item:
+                values.append(item)
     return tuple(dict.fromkeys(values))
 
 
@@ -199,11 +195,17 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
+        key_pool = _api_key_list()
+        if not key_pool:
+            raise ConfigError(
+                "حداقل یک Gemini API key لازم است. "
+                "GEMINI_API_KEY یا GEMINI_API_KEYS را در GitHub Secrets تنظیم کن."
+            )
         return cls(
-            gemini_api_key=_require("GEMINI_API_KEY"),
+            gemini_api_key=key_pool[0],
             telegram_bot_token=_require("TELEGRAM_BOT_TOKEN"),
             telegram_chat_id=_require("TELEGRAM_CHAT_ID"),
-            gemini_api_keys=_api_key_list(),
+            gemini_api_keys=key_pool[1:],
             text_model=_optional("GEMINI_MODEL", DEFAULT_TEXT_MODEL) or DEFAULT_TEXT_MODEL,
             text_model_fallbacks=_model_list(
                 "GEMINI_MODEL_FALLBACKS", DEFAULT_TEXT_MODEL_FALLBACKS
