@@ -112,6 +112,26 @@ def _selftest(settings: Settings) -> int:
     return 0
 
 
+def _print_ladder(kind: str, ladder: tuple[str, ...], available: set[str]) -> None:
+    """نردبان واقعیِ امتحان‌شدن مدل‌ها را چاپ می‌کند.
+
+    این دقیقاً همان چیزی است که در اجرا اتفاق می‌افتد: از بالا به پایین،
+    و هر مدلی که روی اکانت نیست اصلاً صدا زده نمی‌شود.
+    """
+    print(f"\n— نردبان {kind} (به همین ترتیب امتحان می‌شود) —")
+    usable = 0
+    for index, model in enumerate(ladder, start=1):
+        if model in available:
+            usable += 1
+            print(f"  {index}. {model}  ✅")
+        else:
+            print(f"  {index}. {model}  ⛔ روی اکانت نیست، رد می‌شود")
+    if usable == 0:
+        print("  ⚠️ هیچ‌کدام قابل استفاده نیست! GEMINI_MODEL را عوض کن.")
+    else:
+        print(f"  → {usable} مدل قابل استفاده است.")
+
+
 def _list_models(settings: Settings) -> int:
     """مدل‌های واقعیِ روی اکانت را چاپ می‌کند.
 
@@ -145,6 +165,11 @@ def _list_models(settings: Settings) -> int:
     for name in image_models:
         mark = " ← پیش‌فرض فعلی" if name == settings.image_model else ""
         print(f"  {name}{mark}")
+
+    # نردبان واقعی که در اجرا استفاده می‌شود؛ مهم‌ترین بخش این خروجی است.
+    _print_ladder("متن", settings.text_model_ladder, names)
+    _print_ladder("تصویر", settings.image_model_ladder, names)
+
     print("\nسهمیهٔ هر مدل را اینجا ببین: https://aistudio.google.com/rate-limit")
     return 0
 
@@ -207,11 +232,12 @@ def _friendly_hint(error: str) -> str:
     if "در دسترس نیست" in low or "is not found" in low or "invalid model" in low:
         return (
             "💡 هیچ مدل مناسبی روی اکانت پیدا نشد.\n"
-            "برای دیدن فهرست مدل‌های واقعیِ اکانتت، workflow را با "
-            "<code>dry_run</code> اجرا کن و در لاگ خط "
-            "«مدل روی این اکانت در دسترس است» را نگاه کن.\n"
-            "سپس در Settings → Variables متغیر <code>GEMINI_MODEL</code> را "
-            "روی یکی از همان مدل‌ها بگذار."
+            "در تب <b>Actions</b> ورکفلوی <code>diagnose</code> را اجرا کن؛ "
+            "فهرست مدل‌های واقعیِ اکانتت را چاپ می‌کند (چیزی هم منتشر نمی‌کند).\n"
+            "سپس در Settings → Variables متغیر <code>GEMINI_MODEL</code> و "
+            "<code>IMAGE_MODEL</code> را روی یکی از همان مدل‌ها بگذار.\n\n"
+            "اگر مدل Pro گذاشته‌ای، <code>GEMINI_MODEL_FALLBACKS</code> را خالی "
+            "نگذار تا وقتی سهمیه‌اش تمام شد درجا به Flash سوئیچ شود."
         )
     if "chat not found" in low or "chat_admin_required" in low:
         return "💡 <code>TELEGRAM_CHAT_ID</code> را چک کن و مطمئن شو بات ادمین کانال است."
