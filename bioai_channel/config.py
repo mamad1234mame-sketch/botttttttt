@@ -38,6 +38,15 @@ def _optional_int(name: str, default: int) -> int:
         raise ConfigError(f"{name} باید عدد باشد، ولی «{raw}» است.") from exc
 
 
+def _model_list(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
+    """فهرست مدل‌های جایگزین را از یک متغیر محیطی جدا‌شده با کاما می‌خواند."""
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    models = tuple(m.strip() for m in raw.split(",") if m.strip())
+    return models or default
+
+
 # --------------------------------------------------------------------------
 # مدل‌ها
 # --------------------------------------------------------------------------
@@ -46,6 +55,15 @@ def _optional_int(name: str, default: int) -> int:
 #: مقدار پیش‌فرض یک مدل *stable* است. برای دیدن فهرست زنده:
 #: https://ai.google.dev/gemini-api/docs/models
 DEFAULT_TEXT_MODEL = "gemini-3.7-flash"
+
+#: اگر سهمیهٔ مدل اصلی تمام شد (429) یا مدل در دسترس نبود، این‌ها به‌ترتیب
+#: امتحان می‌شوند. نکتهٔ مهم: سهمیهٔ هر مدل جداست، پس مدل دوم می‌تواند
+#: همان لحظه‌ای که مدل اول 429 داده کار کند.
+DEFAULT_TEXT_MODEL_FALLBACKS = (
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-2.5-flash",
+)
 
 #: مدل تولید تصویر (Nano Banana 2). اگر روی اکانت تو در دسترس نبود،
 #: با IMAGE_MODEL_FALLBACKS امتحان می‌شود و در نهایت پست بدون تصویر می‌رود.
@@ -62,6 +80,7 @@ class Settings:
     telegram_chat_id: str
 
     text_model: str = DEFAULT_TEXT_MODEL
+    text_model_fallbacks: tuple[str, ...] = DEFAULT_TEXT_MODEL_FALLBACKS
     image_model: str = DEFAULT_IMAGE_MODEL
     image_model_fallbacks: tuple[str, ...] = IMAGE_MODEL_FALLBACKS
 
@@ -101,7 +120,11 @@ class Settings:
             telegram_bot_token=_require("TELEGRAM_BOT_TOKEN"),
             telegram_chat_id=_require("TELEGRAM_CHAT_ID"),
             text_model=_optional("GEMINI_MODEL", DEFAULT_TEXT_MODEL) or DEFAULT_TEXT_MODEL,
+            text_model_fallbacks=_model_list(
+                "GEMINI_MODEL_FALLBACKS", DEFAULT_TEXT_MODEL_FALLBACKS
+            ),
             image_model=_optional("IMAGE_MODEL", DEFAULT_IMAGE_MODEL) or DEFAULT_IMAGE_MODEL,
+            image_model_fallbacks=_model_list("IMAGE_MODEL_FALLBACKS", IMAGE_MODEL_FALLBACKS),
             admin_chat_id=_optional("ADMIN_CHAT_ID"),
             dry_run=_optional("DRY_RUN", "false").lower() in {"1", "true", "yes", "on"},
             skip_images=_optional("SKIP_IMAGES", "false").lower() in {"1", "true", "yes", "on"},
