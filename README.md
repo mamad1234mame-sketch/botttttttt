@@ -60,7 +60,7 @@ git clone <repo-url> && cd bio-ai-channel
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 cp .env.example .env   # و پرش کن
-pytest                 # ۱۶۱ تست، بدون شبکه
+pytest                 # ۱۹۷ تست، بدون شبکه
 ```
 
 اجرای دستی:

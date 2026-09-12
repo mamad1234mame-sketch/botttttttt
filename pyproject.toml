@@ -21,3 +21,7 @@ include = ["bioai_channel*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# بدون این، اجرای «pytest» (برخلاف «python -m pytest») ریپو را در sys.path
+# نمی‌گذارد و همهٔ تست‌ها با ModuleNotFoundError می‌میرند — همان چیزی که
+# باعث شد CI همیشه قرمز باشد.
+pythonpath = ["."]
