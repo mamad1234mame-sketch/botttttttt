@@ -43,6 +43,23 @@ def test_ladders_have_no_duplicates():
     assert s.text_model_ladder == ("gemini-3.5-flash", "gemini-3.1-flash-lite")
 
 
+def test_default_ladder_prefers_models_that_have_a_free_tier():
+    """رگرسیون: سری Gemini 3 بدون billing همیشه 429 می‌دهد.
+
+    نردبان قبلی *فقط* مدل‌های ۳.x داشت؛ نتیجه این بود که هر اجرا روی همهٔ
+    مدل‌ها و همهٔ API keyها 429 می‌گرفت و هیچ پستی ارسال نمی‌شد.
+    """
+    s = _s()
+    ladder = s.text_model_ladder
+
+    assert ladder[0] == "gemini-2.5-flash"
+    assert "gemini-2.5-flash-lite" in ladder
+
+    first_free = min(i for i, m in enumerate(ladder) if m.startswith("gemini-2.5"))
+    first_paid = min(i for i, m in enumerate(ladder) if m.startswith("gemini-3"))
+    assert first_free < first_paid, ladder
+
+
 # ------------------------------------------------------------------- حالت Pro
 def test_prefer_pro_tries_pro_first_then_falls_to_free():
     """Pro اول، ولی رایگان‌ها همیشه به‌عنوان تور ایمنی آخر صف می‌مانند."""

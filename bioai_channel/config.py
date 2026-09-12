@@ -69,28 +69,35 @@ def _api_key_list(primary_name: str = "GEMINI_API_KEY", pool_name: str = "GEMINI
 # --------------------------------------------------------------------------
 
 #: مدلی که متن را می‌نویسد و وب را جست‌وجو می‌کند (Grounding with Google Search).
-#: مقدار پیش‌فرض یک مدل *stable* است. برای دیدن فهرست زنده:
-#: https://ai.google.dev/gemini-api/docs/models
+#: برای دیدن فهرست زنده: https://ai.google.dev/gemini-api/docs/models
 #:
-#: توجه (سپتامبر ۲۰۲۶): gemini-2.5-flash و gemini-2.5-flash-lite رسماً
-#: shut down شده‌اند (به ترتیب ۱۷ ژوئن و ۲۲ ژوئیهٔ ۲۰۲۶) و دیگر در هیچ
-#: نردبانی نباید باشند — همیشه ۴۰۴ می‌دهند و فقط وقت/تلاش هدر می‌دهند.
-DEFAULT_TEXT_MODEL = "gemini-3.8-flash"
+#: ⚠️ واقعیتی که در لاگ واقعی اکانت دیده شد (سپتامبر ۲۰۲۶):
+#: سری Gemini 3 روی tier *رایگان* سهمیه ندارد. models.list همهٔ آن‌ها را
+#: نشان می‌دهد (یعنی ۴۰۴ نمی‌دهند) ولی هر generateContent با
+#: «429 Too Many Requests» برمی‌گردد — روی همهٔ مدل‌های ۳.x و همهٔ API keyها.
+#: خانوادهٔ ۲.۵ هنوز سهمیهٔ رایگان دارد، پس پیش‌فرض روی آن است.
+#: (ادعای قبلیِ این فایل که ۲.۵ shut down شده، غلط بود؛ در خروجی workflow
+#:  diagnose همین اکانت، gemini-2.5-flash و gemini-2.5-flash-lite فهرست شده‌اند.)
+DEFAULT_TEXT_MODEL = "gemini-2.5-flash"
 
 #: اگر سهمیهٔ مدل اصلی تمام شد (429) یا مدل در دسترس نبود، این‌ها به‌ترتیب
 #: امتحان می‌شوند. نکتهٔ مهم: سهمیهٔ هر مدل جداست، پس مدل دوم می‌تواند
 #: همان لحظه‌ای که مدل اول 429 داده کار کند.
 #:
-#: ترتیب: مدل‌های جدیدتر و پایدار خانوادهٔ Gemini 3 اول، بعد Flash-Lite ها
-#: (سهمیهٔ رایگانشان معمولاً بالاتر است). مدل‌هایی که روی اکانت وجود ندارند
-#: خودکار به آخر صف منتقل می‌شوند (نه حذف — چون فهرست اکانت ممکن است ناقص
-#: یا با تأخیر sync شده باشد؛ حذف کامل باعث می‌شد مدل‌های واقعاً کار‌کن هم
-#: هرگز امتحان نشوند).
+#: ترتیب: اول مدل‌هایی که *بدون billing* سهمیه دارند (۲.۵ و aliasهای latest)،
+#: بعد سری ۳ — چون اگر روزی billing وصل شود، خودکار از همان‌ها استفاده می‌شود.
+#: مدل‌هایی که روی اکانت وجود ندارند خودکار به آخر صف منتقل می‌شوند (نه حذف —
+#: چون فهرست اکانت ممکن است ناقص یا با تأخیر sync شده باشد).
 DEFAULT_TEXT_MODEL_FALLBACKS = (
+    "gemini-2.5-flash-lite",
+    "gemini-flash-latest",
+    "gemini-flash-lite-latest",
+    # ↓ این‌ها فقط با billing کار می‌کنند؛ رایگان = 429 دائمی.
+    "gemini-3.8-flash",
     "gemini-3.7-flash",
     "gemini-3.6-flash",
-    "gemini-3.5-flash-lite",
     "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
     "gemini-3.1-flash-lite",
     "gemini-3-flash-preview",
 )
@@ -138,7 +145,7 @@ class Settings:
     #: اگر true باشد، سیگنال‌های ترند از اینترنت گرفته نمی‌شوند.
     skip_signals: bool = False
 
-    max_output_tokens: int = 4096
+    max_output_tokens: int = 8192
     temperature: float = 0.9
     #: سقف تلاش مجدد برای هر فراخوانی Gemini.
     max_retries: int = 3
@@ -194,7 +201,7 @@ class Settings:
             admin_chat_id=_optional("ADMIN_CHAT_ID"),
             dry_run=_optional("DRY_RUN", "false").lower() in {"1", "true", "yes", "on"},
             skip_signals=_optional("SKIP_SIGNALS", "false").lower() in {"1", "true", "yes", "on"},
-            max_output_tokens=_optional_int("MAX_OUTPUT_TOKENS", 4096),
+            max_output_tokens=_optional_int("MAX_OUTPUT_TOKENS", 8192),
             temperature=float(_optional("TEMPERATURE", "0.9") or 0.9),
             max_retries=_optional_int("MAX_RETRIES", 3),
             request_timeout=_optional_int("REQUEST_TIMEOUT", 180),

@@ -214,7 +214,8 @@ bio-ai-channel/
 | `GEMINI_API_KEY تنظیم نشده` | Secret اضافه نشده | مرحلهٔ ۶ را چک کن؛ اسم دقیق |
 | `chat not found` | `TELEGRAM_CHAT_ID` غلط | `@Bio_with_AI` یا آیدی عددی `-100...` |
 | `CHANNEL_CHAT_ADMIN_REQUIRED` | بات ادمین نیست | مرحلهٔ ۲ |
-| `models/... is not found` یا `هیچ مدل در دسترس نبود` | مدل روی اکانتت نیست یا از رده خارج شده | workflow `diagnose` را اجرا کن تا فهرست واقعی مدل‌های اکانتت را ببینی؛ **هرگز** `GEMINI_MODEL` را دستی روی `gemini-2.5-flash`/`gemini-2.5-flash-lite` نگذار — این دو رسماً از کار افتاده‌اند (۲۰۲۶) |
+| `models/... is not found` یا `هیچ مدل در دسترس نبود` | مدل روی اکانتت نیست | workflow `diagnose` را اجرا کن تا فهرست واقعی مدل‌های اکانتت را ببینی و `GEMINI_MODEL` را روی یکی از همان‌ها بگذار |
+| `429` روی **همهٔ** مدل‌ها و همهٔ keyها | سری Gemini 3 روی لایهٔ **رایگان** سهمیه ندارد | `GEMINI_MODEL=gemini-2.5-flash` (پیش‌فرض فعلی) یا billing وصل کن. `gemini-2.5-flash` و `gemini-2.5-flash-lite` سالم‌اند — برخلاف آنچه نسخهٔ قبلی این راهنما می‌گفت |
 | `429 RESOURCE_EXHAUSTED` / `You exceeded your current quota` | سهمیهٔ رایگان آن مدل تمام شده | **راه‌حل قطعی پایین را بخوان** ⬇️ |
 | `سهمیهٔ روزانهٔ همهٔ مدل‌های در دسترس تمام شده` | سهمیهٔ همهٔ مدل‌ها رفته | تا ~۱۰:۳۰ صبح تهران صبر کن، یا billing وصل کن |
 | `هیچ مدل مناسبی روی اکانت پیدا نشد` | مدل‌های تنظیم‌شده روی اکانت نیستند | workflow `diagnose` را اجرا کن |
@@ -261,8 +262,10 @@ bio-ai-channel/
 نردبان پیش‌فرض متن (اول رایگان‌های پرسهمیه):
 
 ```
-gemini-3.7-flash → gemini-3.5-flash-lite → gemini-3.1-flash-lite
-→ gemini-3.6-flash → gemini-3.5-flash → …
+gemini-2.5-flash → gemini-2.5-flash-lite → gemini-flash-latest
+→ gemini-flash-lite-latest → gemini-3.8-flash → gemini-3.7-flash → …
+
+(اول رایگان‌ها؛ سری ۳ آخر صف است چون بدون billing با 429 رد می‌شود.)
 ```
 
 هر مدلی که در فهرست اکانتت دیده نشود، به آخر صف منتقل می‌شود (نه حذف)،
@@ -304,11 +307,11 @@ Settings → Secrets and variables → Actions → تب **Variables** →
 — مدل‌های متنی (برای GEMINI_MODEL) —
   gemini-3.1-flash-lite
   gemini-3.5-flash-lite
-  gemini-3.7-flash ← پیش‌فرض فعلی
+  gemini-2.5-flash ← پیش‌فرض فعلی
   ...
 
 — نردبان متن (به همین ترتیب امتحان می‌شود) —
-  1. gemini-3.7-flash  ✅ تأییدشده روی اکانت
+  1. gemini-2.5-flash  ✅ تأییدشده روی اکانت
   2. gemini-3.5-flash-lite  ✅ تأییدشده روی اکانت
   3. gemini-3.1-flash-lite  ✅ تأییدشده روی اکانت
   4. gemini-3.6-flash  ❔ در فهرست اکانت دیده نشد، ولی همچنان امتحان می‌شود
@@ -322,21 +325,21 @@ Settings → Secrets and variables → Actions → تب **Variables** →
 
 5. سهمیهٔ هر مدل را هم اینجا ببین: https://aistudio.google.com/rate-limit
 
-### اگر قبلاً `GEMINI_MODEL` را ساختی، پاکش کن
+### اگر `GEMINI_MODEL` را روی یک مدل سری ۳ گذاشته‌ای، برش گردان
 
-اگر طبق راهنمای قبلی من یک Variable به اسم `GEMINI_MODEL` با مقدار
-`gemini-2.5-flash` ساخته بودی، **حذفش کن**. آن مدل روی بعضی اکانت‌ها
-۴۰۴ می‌دهد و اوضاع را بدتر می‌کند.
+اگر Variable به اسم `GEMINI_MODEL` با مقدار چیزی مثل `gemini-3.7-flash`
+ساخته‌ای، **یا حذفش کن یا بگذار `gemini-2.5-flash`**. سری ۳ در فهرست
+اکانت دیده می‌شود ولی بدون billing هر درخواستش 429 می‌دهد؛ این دقیقاً همان
+چیزی است که باعث می‌شد هر اجرای Actions با خطا تمام شود.
 
 Settings → Secrets and variables → Actions → تب **Variables** →
-`GEMINI_MODEL` → **Delete**
-
-ربات خودش مدل‌های موجود را پیدا می‌کند و یکی‌یکی امتحان می‌کند.
+`GEMINI_MODEL` → مقدار `gemini-2.5-flash` (یا Delete تا از پیش‌فرض کد استفاده شود)
 
 ### راه‌حل دائمی
 
-سهمیهٔ رایگان مدل‌های Gemini 3 خیلی کم است (در حد چند درخواست در روز).
-برای یک کانال که هر روز پست می‌گذارد کافی نیست. دو راه داری:
+سری Gemini 3 روی لایهٔ رایگان **اصلاً سهمیه ندارد** (429 دائمی) و سهمیهٔ
+رایگان خانوادهٔ ۲.۵ هم محدود است. برای کانالی که هر روز پست می‌گذارد
+دو راه داری:
 
 **راه ۱ — صبر کن.** سهمیه نیمه‌شب به وقت اقیانوس آرام ریست می‌شود،
 حدود **۱۰:۳۰ صبح تهران**. بعدش دوباره کار می‌کند.

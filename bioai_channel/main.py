@@ -168,7 +168,8 @@ def _list_models(settings: Settings) -> int:
 
     text_models = [n for n in names if "image" not in n and "veo" not in n and "tts" not in n]
 
-    key_count = len(settings.gemini_api_keys) or 1
+    # gemini_api_keys فقط کلیدهای *اضافی* است؛ کلید اصلی جدا نگه داشته می‌شود.
+    key_count = len(settings.gemini_api_keys) + 1
     print(f"✅ {len(names)} مدل روی مجموع {key_count} API key مجاز در دسترس/قابل مشاهده است\n")
     print("— مدل‌های متنی (برای GEMINI_MODEL) —")
     for name in text_models:

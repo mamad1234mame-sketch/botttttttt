@@ -80,7 +80,7 @@ git push -u origin main
 
 | نام | پیش‌فرض | توضیح |
 |---|---|---|
-| `GEMINI_MODEL` | `gemini-3.7-flash` | مدل نوشتن متن (تصویر تولید نمی‌شود) |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | مدل نوشتن متن (سری ۳ رایگان نیست) |
 | `CHANNEL_SIGNATURE` | `@Bio_with_AI` | امضای پایان پست |
 
 ## ۷) Actions را فعال کن
@@ -137,7 +137,7 @@ python -m bioai_channel.main --selftest
 ✅ چت مقصد: Bio with AI (نوع: channel)
 ✅ بات ادمین کانال است: True
 ✅ حافظه: state/memory.json — 0 پست ثبت‌شده
-✅ مدل متن: gemini-3.7-flash
+✅ مدل متن: gemini-2.5-flash
 ℹ️ این بات فقط متن می‌فرستد؛ تصویر تولید نمی‌شود.
 — آمادهٔ اجرا —
 ```
@@ -155,7 +155,7 @@ python -m bioai_channel.main --selftest
 | `CHANNEL_CHAT_ADMIN_REQUIRED` | بات ادمین نیست | بات را ادمین کن + اجازهٔ Post Messages |
 | `bot was kicked` | بات از کانال بیرون شده | دوباره اضافه و ادمین کن |
 | `models/... is not found` | مدل روی اکانتت نیست | `GEMINI_MODEL` را در Variables عوض کن |
-| `429 RESOURCE_EXHAUSTED` | سهمیه تمام شده | فاصلهٔ انتشار را بیشتر کن (هر ۳ ساعت کافی است) |
+| `429 RESOURCE_EXHAUSTED` روی *همهٔ* مدل‌ها | آن مدل‌ها لایهٔ رایگان ندارند (سری Gemini 3) | `GEMINI_MODEL` را روی `gemini-2.5-flash` بگذار یا billing وصل کن |
 | اجرای زمان‌بندی‌شده نمی‌آید | workflow روی برنچ پیش‌فرض نیست / ریپو ۶۰ روز بی‌فعال بوده | یک commit بزن و دستی اجرا کن |
 
 ---

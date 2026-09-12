@@ -316,10 +316,11 @@ class GeminiClient:
                     if index + 1 < len(alive):
                         logger.warning(
                             "سهمیهٔ روزانهٔ %s روی API key #%d تمام شد؛ "
-                            "بدون صبر به مدل %s می‌رویم.",
+                            "بدون صبر به مدل %s می‌رویم. دلیل API: %s",
                             candidate,
                             key_index + 1,
                             alive[index + 1],
+                            str(exc)[:400],
                         )
                         continue
                     raise
@@ -406,11 +407,12 @@ class GeminiClient:
             raise GeminiQuotaExhausted(
                 "سهمیهٔ روزانهٔ همهٔ مدل‌های در دسترس روی همهٔ API keyها تمام شده است: "
                 f"{list(requested)}"
+                + _details(key_errors)
             )
 
         raise GeminiError(
             "فراخوانی Gemini با همهٔ API keyهای تنظیم‌شده ناموفق بود: "
-            + " | ".join(key_errors)
+            + _details(key_errors)
         )
 
     def _generate_with_retry(self, model: str, contents: Any, config: Any) -> Any:
@@ -447,6 +449,21 @@ class GeminiClient:
                     delay,
                 )
                 time.sleep(delay)
+
+
+def _details(key_errors: list[str], limit: int = 4) -> str:
+    """چکیدهٔ دلیل واقعیِ شکست هر key — تا در لاگ معلوم شود چرا نشد.
+
+    بدون این، کاربر فقط «تمام مدل‌ها شکست خوردند» را می‌دید و نمی‌فهمید
+    علتش سهمیه است، نبودِ tier رایگان، یا یک خطای کاملاً متفاوت.
+    """
+    if not key_errors:
+        return ""
+    shown = key_errors[:limit]
+    text = " | ".join(str(item)[:400] for item in shown)
+    if len(key_errors) > limit:
+        text += f" | (+{len(key_errors) - limit} مورد دیگر)"
+    return f"\nدلیل واقعی: {text}"
 
 
 def usage_of(response: Any) -> str:

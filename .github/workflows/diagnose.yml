@@ -44,7 +44,7 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.7-flash' }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
           # همان متغیرهایی که در اجرای واقعی استفاده می‌شوند، تا نردبانی که
           # این‌جا چاپ می‌شود دقیقاً همان نردبانِ اجرای اصلی باشد.
           GEMINI_MODEL_FALLBACKS: ${{ vars.GEMINI_MODEL_FALLBACKS }}

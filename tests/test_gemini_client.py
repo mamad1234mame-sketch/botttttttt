@@ -185,6 +185,24 @@ def test_all_models_quota_exhausted_raises_clear_error():
     assert "سهمیهٔ روزانهٔ همهٔ مدل‌ها" in str(exc.value)
 
 
+def test_final_quota_error_keeps_the_real_api_reason():
+    """رگرسیون: پیام نهایی فقط فهرست مدل‌ها بود و دلیل واقعیِ API گم می‌شد.
+
+    این همان چیزی است که باعث شد ۳۹ اجرای پشت‌سرهم با «quota exhausted»
+    بمیرند بدون اینکه معلوم شود علتش نبودِ لایهٔ رایگان است یا چیز دیگر.
+    """
+    from bioai_channel.gemini_client import GeminiQuotaExhausted
+
+    script = [QuotaError(REAL_QUOTA_MESSAGE)] * 2
+    client = GeminiClient("k", max_retries=3, client=FakeClient(script))
+    with pytest.raises(GeminiQuotaExhausted) as exc:
+        client.generate("m1", "hi", None, fallback_models=("m2",))
+
+    text = str(exc.value)
+    assert "دلیل واقعی" in text
+    assert "exceeded your current quota" in text
+
+
 def test_rpm_429_gets_longer_backoff(monkeypatch):
     """برای محدودیت دقیقه‌ای باید سخاوتمندانه‌تر صبر کنیم."""
     slept: list[float] = []

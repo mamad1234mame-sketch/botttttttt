@@ -129,6 +129,43 @@ def test_no_image_is_ever_requested_or_sent(tmp_path):
     assert "image" not in result.as_dict()
 
 
+def test_paid_only_models_429_but_free_model_still_posts(tmp_path):
+    """بازتولید دقیقِ باگی که ۳۹ اجرای Actions را شکست داد.
+
+    روی این اکانت، سری Gemini 3 در models.list هست ولی هر generateContent
+    با 429 برمی‌گردد (لایهٔ رایگان ندارد). نردبان باید به مدل رایگان
+    برسد و پست واقعاً ارسال شود.
+    """
+    from bioai_channel.gemini_client import GeminiQuotaExhausted
+
+    class QuotaGemini:
+        def __init__(self):
+            self.tried: list[str] = []
+
+        def generate(self, model, contents, config, fallback_models=()):
+            """دقیقاً مثل کلاینت واقعی: روی 429 بدون صبر به مدل بعدی."""
+            errors: list[str] = []
+            for candidate in (model, *fallback_models):
+                self.tried.append(candidate)
+                if candidate.startswith("gemini-3"):
+                    errors.append(f"{candidate}: 429 RESOURCE_EXHAUSTED")
+                    continue
+                return FakeTextResponse(payload())
+            raise GeminiQuotaExhausted(
+                "سهمیهٔ روزانهٔ همهٔ مدل‌های در دسترس تمام شده است: "
+                + ", ".join(errors)
+            )
+
+    gemini = QuotaGemini()
+    telegram = FakeTelegram()
+    publisher = make_publisher(tmp_path, gemini, telegram)
+    result = publisher.run(forced_format="fact")
+
+    assert result.ok is True, result.error
+    assert len(telegram.messages) >= 1
+    assert "gemini-2.5-flash" in gemini.tried
+
+
 def test_image_module_is_gone():
     """ماژول تولید تصویر دیگر وجود ندارد."""
     import bioai_channel
