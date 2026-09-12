@@ -4,7 +4,7 @@
   - تلگرام گاهی HTTP 200 می‌دهد ولی ok=false است؛ همیشه پاکت را چک می‌کنیم.
   - اگر parse_mode=HTML خطا داد، بدون parse_mode دوباره می‌فرستیم (fallback).
   - روی ۴۲۹ تلگرام، طبق retry_after صبر می‌کنیم.
-  - تصویر با sendPhoto می‌رود و reply می‌شود به پیام اصلی.
+  - این بات فقط متن می‌فرستد (sendMessage)؛ هیچ فایلی آپلود نمی‌شود.
 """
 
 from __future__ import annotations
@@ -22,8 +22,6 @@ from .chunk import MAX_TEXT_CHARS, visible_len
 logger = logging.getLogger(__name__)
 
 TELEGRAM_API = "https://api.telegram.org"
-CAPTION_LIMIT = 1024
-PHOTO_LIMIT_BYTES = 10 * 1024 * 1024
 
 
 class TelegramError(RuntimeError):
@@ -131,45 +129,6 @@ class TelegramClient:
         message_id = result.get("message_id") if isinstance(result, dict) else None
         if not message_id:
             raise TelegramError(f"sendMessage موفق بود ولی message_id نداشت: {result!r}")
-        return int(message_id)
-
-    def send_photo(
-        self,
-        photo_bytes: bytes,
-        caption: str = "",
-        mime_type: str = "image/png",
-        reply_to_message_id: int | None = None,
-        silent: bool = False,
-    ) -> int:
-        if len(photo_bytes) > PHOTO_LIMIT_BYTES:
-            raise TelegramError(
-                f"تصویر {len(photo_bytes)/1024/1024:.1f} مگابایت است؛ حد تلگرام ۱۰ مگابایت است."
-            )
-
-        caption = caption[:CAPTION_LIMIT]
-        data: dict[str, Any] = {
-            "chat_id": self.chat_id,
-            "parse_mode": "HTML",
-            "disable_notification": bool(silent),
-        }
-        if caption:
-            data["caption"] = caption
-        if reply_to_message_id:
-            data["reply_parameters"] = json.dumps({"message_id": reply_to_message_id})
-
-        files = {"photo": ("post.png", photo_bytes, mime_type)}
-        try:
-            result = self._call("sendPhoto", data, files=files)
-        except TelegramError as exc:
-            if "parse entities" not in str(exc).lower() and "can't parse" not in str(exc).lower():
-                raise
-            logger.warning("کپشن HTML پذیرفته نشد؛ بدون parse_mode می‌فرستیم.")
-            data.pop("parse_mode", None)
-            result = self._call("sendPhoto", data, files=files)
-
-        message_id = result.get("message_id") if isinstance(result, dict) else None
-        if not message_id:
-            raise TelegramError(f"sendPhoto موفق بود ولی message_id نداشت: {result!r}")
         return int(message_id)
 
     # ----------------------------------------------------------------- misc

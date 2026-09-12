@@ -83,7 +83,6 @@ def good_payload() -> dict:
         ],
         "hashtags": ["بیوانفورماتیک"],
         "buttons": [{"text": "مخزن", "url": "https://github.com/a/b"}],
-        "image_prompt": "a folded RNA molecule, scientific illustration",
         "silent": False,
     }
 
@@ -106,7 +105,6 @@ def test_writes_valid_draft():
     assert len(draft.body) == 2
     assert len(draft.sources) == 2
     assert draft.buttons[0]["url"].startswith("https://")
-    assert draft.image_prompt
     assert meta["grounded"] is True
 
 
@@ -181,9 +179,12 @@ def test_rate_limit_is_retried_on_same_model(monkeypatch):
     assert draft.title == "تیتر نمونه"
 
 
-def test_image_prompt_is_passed_through():
-    draft, _meta = run_writer([FakeResponse(json.dumps(good_payload(), ensure_ascii=False))], fmt_id="fact")
-    assert "RNA" in draft.image_prompt
+def test_prompt_no_longer_asks_for_an_image():
+    """پرامپت دیگر image_prompt نمی‌خواهد؛ خروجی فقط متن است."""
+    bundle = SignalBundle()
+    prompt = build_prompt(get_format("fact"), roll_style(), as_prompt_block(bundle), Memory(path=""))
+    assert "image_prompt" not in prompt
+    assert "image" not in prompt.lower()
 
 
 def test_topic_slug_is_lowercased():

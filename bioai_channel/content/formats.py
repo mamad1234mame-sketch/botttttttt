@@ -21,7 +21,6 @@ class PostFormat:
     brief: str
     #: طول هدف به کاراکتر (بعد از parse شدن تگ‌های HTML در تلگرام).
     target_chars: int
-    needs_image: bool = True
     needs_sources: bool = True
     #: چند تکه پشت‌سرهم (رشته/thread) فرستاده شود.
     max_parts: int = 2
@@ -104,7 +103,6 @@ FORMATS: tuple[PostFormat, ...] = (
         weight=1.0,
         target_chars=800,
         max_parts=1,
-        needs_image=True,
         needs_sources=False,
         min_gap_days=1.0,
         fixed_hashtags=("طنز_بیولوژی",),

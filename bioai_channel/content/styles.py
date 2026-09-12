@@ -1,7 +1,7 @@
 """کتابخانهٔ «سبک» — چیزی که باعث می‌شود دو پست پشت‌سرهم شبیه هم نباشند.
 
 هر اجرا یک StyleRoll می‌گیرد که ترکیبی تصادفی (ولی کنترل‌شده) از:
-  سبک بازشدن پست، خانوادهٔ ایموجی، سبک تیتر، نوع پایان‌بندی و سبک تصویر.
+  سبک بازشدن پست، خانوادهٔ ایموجی، سبک تیتر و نوع پایان‌بندی.
 
 این ترکیب به‌صورت متن به مدل داده می‌شود. نتیجه: تنوع واقعی، نه
 تنوع ظاهری.
@@ -60,38 +60,6 @@ ENDING_STYLES: tuple[str, ...] = (
     "با یک هشدار کوتاه دربارهٔ سوءبرداشت رایج تمام کن.",
 )
 
-IMAGE_STYLES: tuple[str, ...] = (
-    "detailed scientific illustration, editorial style, clean vector shapes, "
-    "muted teal and coral palette, white background, high detail",
-    "isometric 3D render, soft studio lighting, glass and matte materials, "
-    "pastel scientific palette, subtle depth of field",
-    "vintage 19th-century biology textbook engraving, fine ink hatching, "
-    "aged cream paper, hand-annotated labels in English",
-    "photorealistic cryo-EM / electron microscopy aesthetic, monochrome blue-grey, "
-    "dramatic scale, ultra fine detail",
-    "fluorescence microscopy aesthetic, dark background, glowing cyan and magenta "
-    "structures, shallow depth of field",
-    "minimalist data-visualization poster, geometric abstraction of the concept, "
-    "strong typographic grid, limited palette of three colors",
-    "conceptual editorial photography, macro lens, laboratory objects rearranged "
-    "into a metaphor, natural light",
-    "hand-drawn ink and watercolor scientific sketch, visible pencil lines, "
-    "loose composition, notebook margins",
-    "retro-futuristic laboratory scene, 1970s color grading, analog instruments "
-    "mixed with biological samples",
-    "paper-cut collage style, layered shadows, bold shapes, "
-    "science-magazine cover composition",
-)
-
-IMAGE_MOODS: tuple[str, ...] = (
-    "wonder and discovery",
-    "clinical precision",
-    "playful curiosity",
-    "quiet intensity",
-    "scale and awe",
-    "warm and human",
-)
-
 
 @dataclass(frozen=True, slots=True)
 class StyleRoll:
@@ -101,8 +69,6 @@ class StyleRoll:
     title_style: str
     emoji_family: tuple[str, ...]
     ending_style: str
-    image_style: str
-    image_mood: str
     #: یک seed عددی که اگر لازم شد همان سبک را دوباره بسازیم.
     seed: int
 
@@ -119,14 +85,6 @@ class StyleRoll:
             "- Never write the words: هوش مصنوعی به عنوان یک ابزار قدرتمند.\n"
         )
 
-    def as_image_prompt_block(self) -> str:
-        return (
-            f"VISUAL STYLE: {self.image_style}\n"
-            f"MOOD: {self.image_mood}\n"
-            "- Absolutely no text, no letters, no numbers, no watermark, no logo in the image.\n"
-            "- Composition must read as an editorial science-channel cover.\n"
-        )
-
 
 def roll_style(rng: random.Random | None = None) -> StyleRoll:
     """یک ترکیب سبکی تازه می‌سازد."""
@@ -138,7 +96,5 @@ def roll_style(rng: random.Random | None = None) -> StyleRoll:
         title_style=inner.choice(TITLE_STYLES),
         emoji_family=inner.choice(EMOJI_FAMILIES),
         ending_style=inner.choice(ENDING_STYLES),
-        image_style=inner.choice(IMAGE_STYLES),
-        image_mood=inner.choice(IMAGE_MOODS),
         seed=seed,
     )

@@ -49,7 +49,6 @@ class DraftPost:
     code_snippet: str = ""
     silent: bool = False
     topic_slug: str = ""
-    image_prompt: str = ""
 
 
 def _clean_hashtag(tag: str) -> str:

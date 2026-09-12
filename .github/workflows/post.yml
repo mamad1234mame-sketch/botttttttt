@@ -39,11 +39,6 @@ on:
         required: false
         type: boolean
         default: false
-      skip_image:
-        description: "تصویر تولید نکن"
-        required: false
-        type: boolean
-        default: false
 
 # هرگز دو اجرا همزمان روی کانال نروند.
 concurrency:
@@ -56,7 +51,6 @@ permissions:
 env:
   PYTHON_VERSION: "3.12"
   DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
-  SKIP_IMAGES: ${{ inputs.skip_image && 'true' || 'false' }}
   # در اجرای زمان‌بندی‌شده inputs خالی است، پس jitter همیشه فعال می‌ماند.
   SKIP_JITTER: ${{ (inputs.fast_test || inputs.dry_run) && 'true' || 'false' }}
 
@@ -103,8 +97,7 @@ jobs:
           # کلیدهای اضافیِ مجاز را با comma یا newline در یک Secret قرار بده.
           # کلید اصلی بالا هم خودکار عضو pool است.
           GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.7-flash' }}
-          IMAGE_MODEL: ${{ vars.IMAGE_MODEL || 'gemini-3.1-flash-image' }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}

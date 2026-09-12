@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from bioai_channel.telegram import CAPTION_LIMIT, TelegramClient, TelegramError
+from bioai_channel.telegram import TelegramClient, TelegramError
 
 
 class FakeHTTPResponse:
@@ -129,24 +129,10 @@ def test_reply_parameters_serialised():
     assert json.loads(session.sent[0]["json"]["reply_parameters"]) == {"message_id": 11}
 
 
-def test_send_photo_uses_multipart():
-    client, session = make_client([{"ok": True, "result": {"message_id": 3}}])
-    photo_id = client.send_photo(b"\x89PNG\r\n", caption="کپشن", reply_to_message_id=1)
-    assert photo_id == 3
-    assert session.sent[0]["files"] is not None
-    assert session.sent[0]["data"]["caption"] == "کپشن"
-
-
-def test_send_photo_truncates_caption():
-    client, session = make_client([{"ok": True, "result": {"message_id": 3}}])
-    client.send_photo(b"x", caption="a" * 3000)
-    assert len(session.sent[0]["data"]["caption"]) == CAPTION_LIMIT
-
-
-def test_send_photo_rejects_oversized_image():
+def test_send_photo_is_gone():
+    """این بات فقط متن می‌فرستد؛ متد آپلود عکس حذف شده است."""
     client, _session = make_client([])
-    with pytest.raises(TelegramError):
-        client.send_photo(b"x" * (11 * 1024 * 1024))
+    assert not hasattr(client, "send_photo")
 
 
 def test_non_json_response_retries(monkeypatch):
