@@ -20,7 +20,6 @@ def make_draft(**overrides) -> DraftPost:
         sources=[{"title": "مقاله", "url": "https://example.org/paper"}],
         hashtags=["بیوانفورماتیک", "AI"],
         buttons=[{"text": "مخزن", "url": "https://github.com/x/y"}],
-        image_prompt="a glowing cell",
     )
     base.update(overrides)
     return DraftPost(**base)

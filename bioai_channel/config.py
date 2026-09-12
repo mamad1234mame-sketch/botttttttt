@@ -95,13 +95,8 @@ DEFAULT_TEXT_MODEL_FALLBACKS = (
     "gemini-3-flash-preview",
 )
 
-#: مدل تولید تصویر (Nano Banana 2). اگر روی اکانت تو در دسترس نبود،
-#: با IMAGE_MODEL_FALLBACKS امتحان می‌شود و در نهایت پست بدون تصویر می‌رود.
-DEFAULT_IMAGE_MODEL = "gemini-3.1-flash-image"
-IMAGE_MODEL_FALLBACKS = (
-    "gemini-3.1-flash-lite-image",
-    "gemini-2.5-flash-image",
-)
+#: این بات هیچ تصویری تولید نمی‌کند؛ خروجی کانال فقط متن است.
+#: پس هیچ مدل تصویری (Nano Banana و مشابه آن) در هیچ نردبانی نیست.
 
 #: مدل‌های *Pro*. پیش‌فرض استفاده نمی‌شوند (سهمیهٔ رایگان‌شان کم است و زود
 #: ۴۲۹ می‌دهند). اگر GEMINI_PREFER_PRO=true بگذاری، اول این‌ها امتحان
@@ -110,10 +105,6 @@ IMAGE_MODEL_FALLBACKS = (
 PRO_TEXT_MODELS = (
     "gemini-3.1-pro-preview",
     "gemini-2.5-pro",
-)
-PRO_IMAGE_MODELS = (
-    "gemini-3-pro-image",
-    "gemini-3.1-pro-image",
 )
 
 
@@ -134,8 +125,6 @@ class Settings:
 
     text_model: str = DEFAULT_TEXT_MODEL
     text_model_fallbacks: tuple[str, ...] = DEFAULT_TEXT_MODEL_FALLBACKS
-    image_model: str = DEFAULT_IMAGE_MODEL
-    image_model_fallbacks: tuple[str, ...] = IMAGE_MODEL_FALLBACKS
 
     #: اگر true باشد، مدل‌های Pro *اول* امتحان می‌شوند و به‌محض ۴۲۹ به
     #: Flash/Lite سوئیچ می‌شود. پیش‌فرض false است چون سهمیهٔ رایگان Pro کم است.
@@ -146,8 +135,6 @@ class Settings:
 
     #: اگر true باشد، هیچ پیامی به تلگرام نمی‌رود؛ فقط در خروجی چاپ می‌شود.
     dry_run: bool = False
-    #: اگر true باشد، تصویر تولید نمی‌شود (صرفه‌جویی در سهمیه).
-    skip_images: bool = False
     #: اگر true باشد، سیگنال‌های ترند از اینترنت گرفته نمی‌شوند.
     skip_signals: bool = False
 
@@ -185,14 +172,6 @@ class Settings:
             head = head + PRO_TEXT_MODELS
         return _dedupe(head + self.text_model_fallbacks)
 
-    @property
-    def image_model_ladder(self) -> tuple[str, ...]:
-        """ترتیب کامل مدل‌های تصویر برای امتحان کردن."""
-        head: tuple[str, ...] = (self.image_model,)
-        if self.prefer_pro:
-            head = head + PRO_IMAGE_MODELS
-        return _dedupe(head + self.image_model_fallbacks)
-
     @classmethod
     def from_env(cls) -> "Settings":
         key_pool = _api_key_list()
@@ -210,13 +189,10 @@ class Settings:
             text_model_fallbacks=_model_list(
                 "GEMINI_MODEL_FALLBACKS", DEFAULT_TEXT_MODEL_FALLBACKS
             ),
-            image_model=_optional("IMAGE_MODEL", DEFAULT_IMAGE_MODEL) or DEFAULT_IMAGE_MODEL,
-            image_model_fallbacks=_model_list("IMAGE_MODEL_FALLBACKS", IMAGE_MODEL_FALLBACKS),
             prefer_pro=_optional("GEMINI_PREFER_PRO", "false").lower()
             in {"1", "true", "yes", "on"},
             admin_chat_id=_optional("ADMIN_CHAT_ID"),
             dry_run=_optional("DRY_RUN", "false").lower() in {"1", "true", "yes", "on"},
-            skip_images=_optional("SKIP_IMAGES", "false").lower() in {"1", "true", "yes", "on"},
             skip_signals=_optional("SKIP_SIGNALS", "false").lower() in {"1", "true", "yes", "on"},
             max_output_tokens=_optional_int("MAX_OUTPUT_TOKENS", 4096),
             temperature=float(_optional("TEMPERATURE", "0.9") or 0.9),

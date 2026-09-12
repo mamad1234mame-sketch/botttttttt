@@ -34,10 +34,6 @@ def _install_stub_genai() -> None:
         def __init__(self, **kwargs):
             self.__dict__.update(kwargs)
 
-    class ImageConfig:
-        def __init__(self, **kwargs):
-            self.__dict__.update(kwargs)
-
     class HttpOptions:
         def __init__(self, **kwargs):
             self.__dict__.update(kwargs)
@@ -50,7 +46,6 @@ def _install_stub_genai() -> None:
     fake_types.GenerateContentConfig = GenerateContentConfig
     fake_types.Tool = Tool
     fake_types.GoogleSearch = GoogleSearch
-    fake_types.ImageConfig = ImageConfig
     fake_types.HttpOptions = HttpOptions
 
     fake_genai = pytypes.ModuleType("google.genai")

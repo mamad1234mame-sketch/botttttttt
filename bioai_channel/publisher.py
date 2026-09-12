@@ -1,5 +1,6 @@
-"""ارکستراسیون کل جریان: سیگنال → انتخاب قالب → نوشتن → تصویر → ارسال.
+"""ارکستراسیون کل جریان: سیگنال → انتخاب قالب → نوشتن → ارسال متن.
 
+خروجی این بات فقط *متن* است: هیچ تصویری تولید یا ارسال نمی‌شود.
 این ماژول هیچ وابستگی مستقیمی به google.genai ندارد؛ کلاینت تزریق می‌شود.
 پس کاملاً قابل تست است.
 """
@@ -8,11 +9,9 @@ from __future__ import annotations
 
 import logging
 import random
-import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import image as image_module
 from . import signals as signals_module
 from . import writer as writer_module
 from .chunk import SAFE_TEXT_CHARS, visible_len
@@ -34,7 +33,6 @@ class RunResult:
     title: str = ""
     parts: int = 0
     chars: int = 0
-    image: bool = False
     message_ids: list[int] = field(default_factory=list)
     grounded: bool = False
     error: str = ""
@@ -47,7 +45,6 @@ class RunResult:
             "title": self.title,
             "parts": self.parts,
             "chars": self.chars,
-            "image": self.image,
             "grounded": self.grounded,
             "message_ids": self.message_ids,
             "plan_reason": self.plan_reason,
@@ -134,14 +131,12 @@ class Publisher:
         result.chars = rendered.total_chars
 
         # ۵) ارسال متن ----------------------------------------------------
-        # متن را اول به کانال می‌فرستیم. تصویر عمداً بعد از آن تولید می‌شود
-        # تا تولید تصویر باعث تأخیر در نمایش متن نشود.
-        generated = None
+        # خروجی این بات فقط متن است؛ هیچ تصویری تولید یا ارسال نمی‌شود.
         if self.settings.dry_run:
             logger.info("DRY RUN — پیام ارسال نشد:\n%s", rendered.as_text())
             result.ok = True
             result.message_ids = []
-            self._remember(draft, fmt, rendered, None, False)
+            self._remember(draft, fmt, rendered, None)
             return result
 
         try:
@@ -151,39 +146,14 @@ class Publisher:
             logger.error("ارسال متن به تلگرام شکست خورد: %s", exc)
             return result
 
-        # ۶) فاصلهٔ واقعی بعد از ارسال متن، سپس تولید تصویر --------------
-        if fmt.needs_image and not self.settings.skip_images:
-            image_delay = 3
-            logger.info(
-                "متن در کانال ارسال شد؛ %d ثانیه تا شروع تولید تصویر صبر می‌کنیم…",
-                image_delay,
-            )
-            time.sleep(image_delay)
-            try:
-                generated = image_module.generate(
-                    self.gemini, self.settings, draft.image_prompt, style
-                )
-            except Exception as exc:  # noqa: BLE001
-                logger.error("خطای غیرمنتظره در تولید تصویر: %s", exc)
-
-        # ۷) ارسال تصویر --------------------------------------------------
-        if generated is not None:
-            try:
-                photo_id = self._send_photo(generated, draft, rendered, result.message_ids[0])
-                result.message_ids.append(photo_id)
-            except TelegramError as exc:
-                logger.error("تصویر ساخته شد اما ارسال آن به تلگرام شکست خورد: %s", exc)
-
-        result.image = generated is not None
         result.ok = True
         self._remember(
             draft, fmt, rendered,
             result.message_ids[0] if result.message_ids else None,
-            generated is not None,
         )
         logger.info(
-            "منتشر شد: [%s] %s (%d تکه، %d کاراکتر، تصویر=%s)",
-            fmt.id, draft.title, result.parts, result.chars, result.image,
+            "منتشر شد: [%s] %s (%d تکه، %d کاراکتر)",
+            fmt.id, draft.title, result.parts, result.chars,
         )
         return result
 
@@ -219,33 +189,6 @@ class Publisher:
                 anchor = message_id
         return message_ids
 
-    def _send_photo(
-        self,
-        generated: image_module.GeneratedImage,
-        draft: Any,
-        rendered: RenderedPost,
-        reply_to_message_id: int | None,
-    ) -> int:
-        """تصویر تولیدشده را بعد از متن به‌عنوان reply ارسال می‌کند."""
-        caption = self._image_caption(draft, rendered)
-        return self.telegram.send_photo(
-            photo_bytes=generated.data,
-            caption=caption,
-            mime_type=generated.mime_type,
-            reply_to_message_id=reply_to_message_id,
-            silent=bool(rendered.parts[0].silent),
-        )
-
-    @staticmethod
-    def _image_caption(draft: Any, rendered: RenderedPost) -> str:
-        from .tg_html import sanitize
-
-        title = sanitize(draft.title)
-        caption = f"<b>{title}</b>"
-        if len(caption) > 900:
-            caption = caption[:900] + "…</b>"
-        return caption
-
     @staticmethod
     def _guard_lengths(rendered: RenderedPost) -> None:
         for index, part in enumerate(rendered.parts):
@@ -261,7 +204,6 @@ class Publisher:
         fmt: Any,
         rendered: RenderedPost,
         message_id: int | None,
-        image_used: bool,
     ) -> None:
         record = PostRecord(
             ts=utcnow().isoformat(),
@@ -270,7 +212,6 @@ class Publisher:
             topic_slug=draft.topic_slug,
             fingerprint=fingerprint(draft.title, " ".join(draft.body)),
             message_id=message_id,
-            image_used=image_used,
             chars=rendered.total_chars,
         )
         self.memory.add(record)

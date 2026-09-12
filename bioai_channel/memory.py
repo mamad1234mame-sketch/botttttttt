@@ -64,7 +64,6 @@ class PostRecord:
     topic_slug: str = ""
     fingerprint: str = ""
     message_id: int | None = None
-    image_used: bool = False
     chars: int = 0
     signals: list[str] = field(default_factory=list)
 

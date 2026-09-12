@@ -2,8 +2,10 @@
 
 نمونه‌ها:
     python -m bioai_channel.main --dry-run
-    python -m bioai_channel.main --format fact --no-image
+    python -m bioai_channel.main --format fact
     python -m bioai_channel.main --selftest
+
+این بات فقط *متن* تولید و ارسال می‌کند؛ هیچ تصویری ساخته نمی‌شود.
 """
 
 from __future__ import annotations
@@ -34,7 +36,6 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="قالب اجباری؛ اگر ندهی خودش هوشمند انتخاب می‌کند.",
     )
     parser.add_argument("--dry-run", action="store_true", help="چیزی ارسال نکن؛ فقط چاپ کن.")
-    parser.add_argument("--no-image", action="store_true", help="تصویر تولید نکن.")
     parser.add_argument("--no-signals", action="store_true", help="ترند/مقالات تازه را نگیر.")
     parser.add_argument("--state", default=None, help="مسیر فایل حافظه.")
     parser.add_argument("--selftest", action="store_true", help="فقط اتصال تلگرام و Gemini را چک کن.")
@@ -108,7 +109,8 @@ def _selftest(settings: Settings) -> int:
         return 1
 
     print(f"✅ حافظه: {settings.state_path} — {len(publisher.memory.posts)} پست ثبت‌شده")
-    print(f"✅ مدل متن: {settings.text_model} / مدل تصویر: {settings.image_model}")
+    print(f"✅ مدل متن: {settings.text_model}")
+    print("ℹ️ این بات فقط متن می‌فرستد؛ تصویر تولید نمی‌شود.")
     print("— آمادهٔ اجرا —")
     return 0
 
@@ -165,7 +167,6 @@ def _list_models(settings: Settings) -> int:
         return 1
 
     text_models = [n for n in names if "image" not in n and "veo" not in n and "tts" not in n]
-    image_models = [n for n in names if "image" in n]
 
     key_count = len(settings.gemini_api_keys) or 1
     print(f"✅ {len(names)} مدل روی مجموع {key_count} API key مجاز در دسترس/قابل مشاهده است\n")
@@ -173,14 +174,9 @@ def _list_models(settings: Settings) -> int:
     for name in text_models:
         mark = " ← پیش‌فرض فعلی" if name == settings.text_model else ""
         print(f"  {name}{mark}")
-    print("\n— مدل‌های تصویر (برای IMAGE_MODEL) —")
-    for name in image_models:
-        mark = " ← پیش‌فرض فعلی" if name == settings.image_model else ""
-        print(f"  {name}{mark}")
-
     # نردبان واقعی که در اجرا استفاده می‌شود؛ مهم‌ترین بخش این خروجی است.
     _print_ladder("متن", settings.text_model_ladder, names)
-    _print_ladder("تصویر", settings.image_model_ladder, names)
+    print("\nℹ️ تصویر تولید نمی‌شود؛ فقط مدل متنی استفاده می‌شود.")
 
     print("\nسهمیهٔ هر مدل را اینجا ببین: https://aistudio.google.com/rate-limit")
     return 0
@@ -198,8 +194,6 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.dry_run:
         settings.dry_run = True
-    if args.no_image:
-        settings.skip_images = True
     if args.no_signals:
         settings.skip_signals = True
     if args.state:
@@ -238,16 +232,15 @@ def _friendly_hint(error: str) -> str:
             "• در AI Studio یک <b>billing account</b> وصل کن (Tier 1). "
             "با spend cap پایین، عملاً رایگان می‌ماند ولی سهمیه‌ات خیلی "
             "بالاتر می‌رود.\n"
-            "• cron را روی هر ۳ ساعت نگه دار، نه هر ساعت.\n"
-            "• برای تست‌ها <code>skip_image</code> را تیک بزن."
+            "• cron را روی هر ۳ ساعت نگه دار، نه هر ساعت."
         )
     if "در دسترس نیست" in low or "is not found" in low or "invalid model" in low:
         return (
             "💡 هیچ مدل مناسبی روی اکانت پیدا نشد.\n"
             "در تب <b>Actions</b> ورکفلوی <code>diagnose</code> را اجرا کن؛ "
             "فهرست مدل‌های واقعیِ اکانتت را چاپ می‌کند (چیزی هم منتشر نمی‌کند).\n"
-            "سپس در Settings → Variables متغیر <code>GEMINI_MODEL</code> و "
-            "<code>IMAGE_MODEL</code> را روی یکی از همان مدل‌ها بگذار.\n\n"
+            "سپس در Settings → Variables متغیر <code>GEMINI_MODEL</code> را "
+            "روی یکی از همان مدل‌ها بگذار.\n\n"
             "اگر مدل Pro گذاشته‌ای، <code>GEMINI_MODEL_FALLBACKS</code> را خالی "
             "نگذار تا وقتی سهمیه‌اش تمام شد درجا به Flash سوئیچ شود."
         )

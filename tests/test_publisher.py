@@ -1,4 +1,7 @@
-"""تست جریان کامل انتشار با کلاینت‌های جعلی (بدون هیچ شبکه‌ای)."""
+"""تست جریان کامل انتشار با کلاینت‌های جعلی (بدون هیچ شبکه‌ای).
+
+خروجی این بات فقط *متن* است: نه تصویری تولید می‌شود، نه عکسی آپلود.
+"""
 
 from __future__ import annotations
 
@@ -7,18 +10,9 @@ import json
 import pytest
 
 from bioai_channel.config import Settings
-from bioai_channel.image import GeneratedImage
 from bioai_channel.memory import Memory
 from bioai_channel.publisher import Publisher
-from bioai_channel.telegram import TelegramClient, TelegramError
-
-
-class FakeImageResponse:
-    def __init__(self):
-        inline = type("I", (), {"data": b"\x89PNG\r\n\x1a\n" + b"0" * 64, "mime_type": "image/png"})()
-        self.parts = [type("P", (), {"inline_data": inline})()]
-        self.usage_metadata = None
-        self.candidates = []
+from bioai_channel.telegram import TelegramError
 
 
 class FakeTextResponse:
@@ -30,24 +24,16 @@ class FakeTextResponse:
 
 
 class FakeGemini:
-    """بسته به config تصمیم می‌گیرد پاسخ متنی بدهد یا تصویری."""
+    """فقط پاسخ متنی می‌دهد؛ هر config درخواستی را نگه می‌دارد."""
 
-    def __init__(self, payload, text_error: Exception | None = None, image_fails: bool = False):
+    def __init__(self, payload, text_error: Exception | None = None):
         self.payload = payload
         self.text_error = text_error
-        self.image_fails = image_fails
         self.text_calls = 0
-        self.image_calls = 0
+        self.configs: list = []
 
     def generate(self, model, contents, config):
-        modalities = getattr(config, "response_modalities", None)
-        if modalities:
-            self.image_calls += 1
-            if self.image_fails:
-                from bioai_channel.gemini_client import GeminiError
-
-                raise GeminiError("image model unavailable")
-            return FakeImageResponse()
+        self.configs.append(config)
         self.text_calls += 1
         if self.text_error is not None:
             raise self.text_error
@@ -55,11 +41,12 @@ class FakeGemini:
 
 
 class FakeTelegram:
-    def __init__(self, fail_on_send: bool = False, fail_on_photo: bool = False):
+    """عمداً send_photo ندارد: اگر روزی کد بخواهد عکس بفرستد، با
+    AttributeError می‌ترکد و تست قرمز می‌شود."""
+
+    def __init__(self, fail_on_send: bool = False):
         self.messages: list[dict] = []
-        self.photos: list[dict] = []
         self.fail_on_send = fail_on_send
-        self.fail_on_photo = fail_on_photo
         self._next_id = 100
 
     def send_message(self, text, reply_markup=None, link_preview=False, silent=False, reply_to_message_id=None):
@@ -77,13 +64,6 @@ class FakeTelegram:
         )
         return self._next_id
 
-    def send_photo(self, photo_bytes, caption="", mime_type="image/png", reply_to_message_id=None, silent=False):
-        if self.fail_on_photo:
-            raise TelegramError("wrong type of the file")
-        self._next_id += 1
-        self.photos.append({"bytes": len(photo_bytes), "caption": caption, "reply_to": reply_to_message_id})
-        return self._next_id
-
 
 def payload(title="تیتر تازه"):
     return {
@@ -94,17 +74,15 @@ def payload(title="تیتر تازه"):
         "sources": [{"title": "مقاله", "url": "https://www.nature.com/x"}],
         "hashtags": ["AI"],
         "buttons": [],
-        "image_prompt": "a glowing protein",
     }
 
 
-def make_publisher(tmp_path, gemini, telegram, dry_run=False, skip_images=False, forced_format=None):
+def make_publisher(tmp_path, gemini, telegram, dry_run=False, forced_format=None):
     settings = Settings(
         gemini_api_key="k",
         telegram_bot_token="t",
         telegram_chat_id="@c",
         dry_run=dry_run,
-        skip_images=skip_images,
         skip_signals=True,
         state_path=str(tmp_path / "memory.json"),
         signature="@Test",
@@ -120,40 +98,44 @@ def test_dry_run_sends_nothing_but_records_memory(tmp_path):
 
     assert result.ok is True
     assert telegram.messages == []
-    assert telegram.photos == []
     assert len(publisher.memory.posts) == 1
 
 
-def test_full_run_sends_text_and_photo(tmp_path):
+def test_full_run_sends_only_text(tmp_path):
     telegram = FakeTelegram()
-    publisher = make_publisher(tmp_path, FakeGemini(payload()), telegram)
+    gemini = FakeGemini(payload())
+    publisher = make_publisher(tmp_path, gemini, telegram)
     result = publisher.run(forced_format="deepdive")
 
     assert result.ok is True
-    assert result.image is True
     assert len(telegram.messages) >= 1
-    assert len(telegram.photos) == 1
-    assert result.message_ids[-1] > result.message_ids[0]
+    # تعداد message_idها باید دقیقاً برابر تعداد پیام‌های متنی باشد
+    assert len(result.message_ids) == len(telegram.messages)
 
 
-def test_photo_is_a_reply_to_first_message(tmp_path):
+def test_no_image_is_ever_requested_or_sent(tmp_path):
+    """رگرسیون: هیچ فراخوانی تصویری (response_modalities) نباید انجام شود."""
     telegram = FakeTelegram()
-    publisher = make_publisher(tmp_path, FakeGemini(payload()), telegram)
-    publisher.run(forced_format="deepdive")
-    first_message_id = 101  # FakeTelegram از ۱۰۰ شروع می‌کند و اولین پیام ۱۰۱ است
-    assert telegram.photos[0]["reply_to"] == first_message_id
-
-
-def test_image_failure_does_not_block_the_post(tmp_path):
-    telegram = FakeTelegram()
-    gemini = FakeGemini(payload(), image_fails=True)
+    gemini = FakeGemini(payload())
     publisher = make_publisher(tmp_path, gemini, telegram)
-    result = publisher.run(forced_format="fact")
+    result = publisher.run(forced_format="deepdive")
 
     assert result.ok is True
-    assert result.image is False
-    assert len(telegram.messages) == 1
-    assert telegram.photos == []
+    assert gemini.text_calls >= 1
+    for config in gemini.configs:
+        assert getattr(config, "response_modalities", None) is None
+        assert getattr(config, "image_config", None) is None
+    assert not hasattr(telegram, "send_photo")
+    assert "image" not in result.as_dict()
+
+
+def test_image_module_is_gone():
+    """ماژول تولید تصویر دیگر وجود ندارد."""
+    import bioai_channel
+    import importlib.util
+
+    assert importlib.util.find_spec("bioai_channel.image") is None
+    assert not hasattr(bioai_channel, "image")
 
 
 def test_telegram_failure_is_reported(tmp_path):
@@ -204,6 +186,15 @@ def test_memory_is_persisted_and_reloaded(tmp_path):
     assert reloaded.posts[0].title == "تیتر تازه"
 
 
+def test_memory_records_have_no_image_field(tmp_path):
+    telegram = FakeTelegram()
+    publisher = make_publisher(tmp_path, FakeGemini(payload()), telegram)
+    publisher.run(forced_format="fact")
+
+    record = publisher.memory.posts[0].to_dict()
+    assert "image_used" not in record
+
+
 def test_automatic_format_selection_respects_history(tmp_path):
     telegram = FakeTelegram()
     publisher = make_publisher(tmp_path, FakeGemini(payload()), telegram)
@@ -243,9 +234,4 @@ def test_result_dict_shape(tmp_path):
     publisher = make_publisher(tmp_path, FakeGemini(payload()), FakeTelegram())
     result = publisher.run(forced_format="fact")
     data = result.as_dict()
-    assert set(data) >= {"ok", "format", "title", "parts", "chars", "image", "message_ids", "error"}
-
-
-def test_generated_image_size_property():
-    img = GeneratedImage(data=b"x" * 2048)
-    assert img.size_kb == 2.0
+    assert set(data) >= {"ok", "format", "title", "parts", "chars", "message_ids", "error"}

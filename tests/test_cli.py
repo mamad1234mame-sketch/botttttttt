@@ -16,10 +16,6 @@ class FakeGemini:
 
     def generate(self, model, contents, config):
         self.calls += 1
-        modalities = getattr(config, "response_modalities", None)
-        if modalities:
-            inline = type("I", (), {"data": b"\x89PNG" + b"0" * 32, "mime_type": "image/png"})()
-            return type("R", (), {"parts": [type("P", (), {"inline_data": inline})()], "usage_metadata": None, "candidates": []})()
         grounding = type("G", (), {"grounding_chunks": [], "web_search_queries": None, "search_entry_point": None})()
         return type(
             "R",
@@ -35,15 +31,10 @@ class FakeGemini:
 class FakeTelegram:
     def __init__(self):
         self.sent = []
-        self.photos = []
 
     def send_message(self, text, **kwargs):
         self.sent.append(text)
         return 500 + len(self.sent)
-
-    def send_photo(self, photo_bytes, **kwargs):
-        self.photos.append(len(photo_bytes))
-        return 600 + len(self.photos)
 
     def me(self):
         return {"username": "test_bot", "id": 1}
@@ -63,7 +54,6 @@ PAYLOAD = {
     "sources": [{"title": "منبع", "url": "https://www.nature.com/x"}],
     "hashtags": ["تست"],
     "buttons": [],
-    "image_prompt": "a test cell",
 }
 
 
@@ -102,7 +92,6 @@ def test_real_run_sends(env, monkeypatch):
 
     assert code == 0
     assert len(fake_telegram.sent) >= 1
-    assert len(fake_telegram.photos) == 1
     assert (env / "memory.json").exists()
 
 
@@ -138,15 +127,10 @@ def test_admin_notification_on_failure(env, monkeypatch):
     assert code == 1
 
 
-def test_no_image_flag(env, monkeypatch):
-    fake_gemini = FakeGemini(PAYLOAD)
-    fake_telegram = FakeTelegram()
-    monkeypatch.setattr(cli, "GeminiClient", lambda **kwargs: fake_gemini)
-    monkeypatch.setattr(cli, "TelegramClient", lambda **kwargs: fake_telegram)
-
-    code = cli.main(["--format", "fact", "--no-image"])
-    assert code == 0
-    assert fake_telegram.photos == []
+def test_no_image_flag_is_gone(env):
+    """پرچم تصویر حذف شده؛ دیگر بخشی از CLI نیست."""
+    with pytest.raises(SystemExit):
+        cli.main(["--format", "fact", "--no-image"])
 
 
 def test_unknown_format_rejected_by_argparse(env):

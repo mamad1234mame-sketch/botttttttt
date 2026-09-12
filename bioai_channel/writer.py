@@ -92,7 +92,6 @@ Return exactly this JSON object (keys in English, values in Persian):
   ],
   "hashtags": ["برچسب_فارسی", "Bioinformatics"],
   "buttons": [{"text": "متن کوتاه دکمه", "url": "https://..."}],
-  "image_prompt": "English prompt describing ONE image for this exact topic",
   "silent": false
 }
 
@@ -104,8 +103,6 @@ RULES FOR THE JSON:
   real URLs you actually saw while searching. Never fabricate a URL.
 - "hashtags": 2 to 4 short tags, no '#' character, Persian or English.
 - "buttons": 0 to 2 items, only real URLs (paper, repo, dataset, tool).
-- "image_prompt": one sentence, in English, describing a concrete visual
-  metaphor for THIS topic. No text inside the image.
 - "silent": true only if it is late night in Tehran and the post is not urgent.
 """
 
@@ -206,7 +203,6 @@ def _to_draft(payload: dict[str, Any], fmt: PostFormat) -> DraftPost:
         code_snippet=str(payload.get("code_snippet") or "").strip(),
         silent=bool(payload.get("silent", False)),
         topic_slug=str(payload.get("topic_slug") or "").strip().lower(),
-        image_prompt=str(payload.get("image_prompt") or "").strip(),
     )
 
 

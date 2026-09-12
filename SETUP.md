@@ -16,7 +16,7 @@
 
 1. بات را به کانال اضافه کن.
 2. در تنظیمات کانال → **Administrators** → بات را ادمین کن.
-3. اجازه‌های لازم: **Post Messages** (و اگر تصویر می‌خواهی، همین کافی است).
+3. اجازه‌های لازم: **Post Messages** (بات فقط متن می‌فرستد؛ همین کافی است).
 
 ## ۳) `TELEGRAM_CHAT_ID` را پیدا کن
 
@@ -80,8 +80,7 @@ git push -u origin main
 
 | نام | پیش‌فرض | توضیح |
 |---|---|---|
-| `GEMINI_MODEL` | `gemini-3.7-flash` | مدل نوشتن متن |
-| `IMAGE_MODEL` | `gemini-3.1-flash-image` | مدل تولید تصویر |
+| `GEMINI_MODEL` | `gemini-3.7-flash` | مدل نوشتن متن (تصویر تولید نمی‌شود) |
 | `CHANNEL_SIGNATURE` | `@Bio_with_AI` | امضای پایان پست |
 
 ## ۷) Actions را فعال کن
@@ -138,7 +137,8 @@ python -m bioai_channel.main --selftest
 ✅ چت مقصد: Bio with AI (نوع: channel)
 ✅ بات ادمین کانال است: True
 ✅ حافظه: state/memory.json — 0 پست ثبت‌شده
-✅ مدل متن: gemini-3.7-flash / مدل تصویر: gemini-3.1-flash-image
+✅ مدل متن: gemini-3.7-flash
+ℹ️ این بات فقط متن می‌فرستد؛ تصویر تولید نمی‌شود.
 — آمادهٔ اجرا —
 ```
 
@@ -156,7 +156,6 @@ python -m bioai_channel.main --selftest
 | `bot was kicked` | بات از کانال بیرون شده | دوباره اضافه و ادمین کن |
 | `models/... is not found` | مدل روی اکانتت نیست | `GEMINI_MODEL` را در Variables عوض کن |
 | `429 RESOURCE_EXHAUSTED` | سهمیه تمام شده | فاصلهٔ انتشار را بیشتر کن (هر ۳ ساعت کافی است) |
-| تصویر نیامد | مدل تصویر در دسترس نبود | `IMAGE_MODEL` را عوض کن؛ پست بدون تصویر می‌رود و اجرا نمی‌میرد |
 | اجرای زمان‌بندی‌شده نمی‌آید | workflow روی برنچ پیش‌فرض نیست / ریپو ۶۰ روز بی‌فعال بوده | یک commit بزن و دستی اجرا کن |
 
 ---
